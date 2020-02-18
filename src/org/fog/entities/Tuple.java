@@ -22,6 +22,10 @@ public class Tuple extends Cloudlet{
 	private int actuatorId;
 	private int sourceDeviceId;
 	private int sourceModuleId;
+
+
+	private Map<String, Integer> modulesToDeviceIdMap;
+
 	/**
 	 * Map to keep track of which module instances has a tuple traversed.
 	 * 
@@ -123,4 +127,11 @@ public class Tuple extends Cloudlet{
 		this.sourceModuleId = sourceModuleId;
 	}
 
+	public Map<String, Integer> getModulesToDeviceIdMap() {
+		return modulesToDeviceIdMap;
+	}
+
+	public void setModulesToDeviceIdMap(Map<String, Integer> modulesToDeviceIdMap) {
+		this.modulesToDeviceIdMap = modulesToDeviceIdMap;
+	}
 }

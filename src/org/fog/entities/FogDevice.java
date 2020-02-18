@@ -37,8 +37,16 @@ import org.fog.utils.Logger;
 import org.fog.utils.ModuleLaunchConfig;
 import org.fog.utils.NetworkUsageMonitor;
 import org.fog.utils.TimeKeeper;
+import org.hu.algorithm.RandomAllocationPolicy;
 
 public class FogDevice extends PowerDatacenter {
+	/**
+	 * 邻居信息
+	 */
+	protected List<FogDevice> allFogDevices;
+
+	protected int fogDeviceType;
+
 	protected Queue<Tuple> northTupleQueue;
 	protected Queue<Pair<Tuple, Integer>> southTupleQueue;
 	
@@ -466,7 +474,10 @@ public class FogDevice extends PowerDatacenter {
 						Application application = getApplicationMap().get(tuple.getAppId());
 						Logger.debug(getName(), "Completed execution of tuple "+tuple.getCloudletId()+"on "+tuple.getDestModuleName());
 						List<Tuple> resultantTuples = application.getResultantTuples(tuple.getDestModuleName(), tuple, getId(), vm.getId());
+
 						for(Tuple resTuple : resultantTuples){
+							//新tuple继承老tuple资源分配信息
+							resTuple.setModulesToDeviceIdMap(tuple.getModulesToDeviceIdMap());
 							resTuple.setModuleCopyMap(new HashMap<String, Integer>(tuple.getModuleCopyMap()));
 							resTuple.getModuleCopyMap().put(((AppModule)vm).getName(), vm.getId());
 							updateTimingsOnSending(resTuple);
@@ -613,9 +624,12 @@ public class FogDevice extends PowerDatacenter {
 		}
 	}
 	int numClients=0;
+
+	//收到Tuple
 	protected void processTupleArrival(SimEvent ev){
+
 		Tuple tuple = (Tuple)ev.getData();
-		
+
 		if(getName().equals("cloud")){
 			updateCloudTraffic();
 		}
@@ -634,7 +648,46 @@ public class FogDevice extends PowerDatacenter {
 			sendTupleToActuator(tuple);
 			return;
 		}
-		
+
+
+		/**
+		 * 如果是边缘计算服务器
+		 */
+		if (getName().startsWith("d")) {
+			/**
+			 * 如果该tuple对应的任务尚未进行资源分配
+			 */
+			if (tuple.getModulesToDeviceIdMap() == null) {
+				Map<String, Integer> modulesToDeviceIdMap;
+
+				List<String> moduleNames = getAppToModulesMap().get(tuple.getAppId());
+				/**
+				 * 指定每个module的处理位置
+				 * 算法添加位置
+				 */
+//				for (String moduleName : moduleNames) {
+//					modulesToDeviceIdMap.put(moduleName, getId());
+//				}
+				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+
+				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
+				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+
+
+			}
+			for (String moduleName : tuple.getModulesToDeviceIdMap().keySet()) {
+				if (!tuple.getDestModuleName().equals(moduleName)) {
+					//如果该tuple标记被当前节点处理
+					if (tuple.getModulesToDeviceIdMap().get(moduleName).equals(getId())) {
+						break;
+					}
+					sendPeer(tuple, tuple.getModulesToDeviceIdMap().get(moduleName));
+					NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+				}
+			}
+		}
+
+
 		if(getHost().getVmList().size() > 0){
 			final AppModule operator = (AppModule)getHost().getVmList().get(0);
 			if(CloudSim.clock() > 0){
@@ -669,6 +722,7 @@ public class FogDevice extends PowerDatacenter {
 				
 				executeTuple(ev, tuple.getDestModuleName());
 			}else if(tuple.getDestModuleName()!=null){
+
 				if(tuple.getDirection() == Tuple.UP)
 					sendUp(tuple);
 				else if(tuple.getDirection() == Tuple.DOWN){
@@ -787,7 +841,14 @@ public class FogDevice extends PowerDatacenter {
 			setNorthLinkBusy(false);
 		}
 	}
-	
+
+	//发往同层节点
+	protected void sendPeer(Tuple tuple,int peerId) {
+		double networkDelay = tuple.getCloudletFileSize()/getUplinkBandwidth();
+		send(peerId, networkDelay+getUplinkLatency(), FogEvents.TUPLE_ARRIVAL, tuple);
+	}
+
+
 	protected void sendUpFreeLink(Tuple tuple){
 		double networkDelay = tuple.getCloudletFileSize()/getUplinkBandwidth();
 		setNorthLinkBusy(true);
@@ -983,5 +1044,25 @@ public class FogDevice extends PowerDatacenter {
 	public void setModuleInstanceCount(
 			Map<String, Map<String, Integer>> moduleInstanceCount) {
 		this.moduleInstanceCount = moduleInstanceCount;
+	}
+
+	public Map<String, List<String>> getAppToModulesMap() {
+		return appToModulesMap;
+	}
+
+	public List<FogDevice> getAllFogDevices() {
+		return allFogDevices;
+	}
+
+	public void setAllFogDevices(List<FogDevice> allFogDevices) {
+		this.allFogDevices = allFogDevices;
+	}
+
+	public int getFogDeviceType() {
+		return fogDeviceType;
+	}
+
+	public void setFogDeviceType(int fogDeviceType) {
+		this.fogDeviceType = fogDeviceType;
 	}
 }
