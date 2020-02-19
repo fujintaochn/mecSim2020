@@ -627,6 +627,19 @@ public class FogDevice extends PowerDatacenter {
 
 	//收到Tuple
 	protected void processTupleArrival(SimEvent ev){
+		/**
+		 * Test
+		 */
+//		if (getName().equals("d-0")) {
+//			System.out.println("@@@@@ d-0 收到tuple @@@");
+//			Tuple t = (Tuple) ev.getData();
+//			if (t.getModulesToDeviceIdMap() != null) {
+//				System.out.println(t.getModuleCopyMap().get(t.getDestModuleName())+"   deviceId="+getId());
+//			}
+//		}
+
+
+
 
 		Tuple tuple = (Tuple)ev.getData();
 
@@ -653,18 +666,18 @@ public class FogDevice extends PowerDatacenter {
 		/**
 		 * 如果是边缘计算服务器
 		 */
-		if (getName().startsWith("d")) {
+		if (getName().startsWith("d")&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
 			/**
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
 			if (tuple.getModulesToDeviceIdMap() == null) {
 				Map<String, Integer> modulesToDeviceIdMap;
 
-				List<String> moduleNames = getAppToModulesMap().get(tuple.getAppId());
 				/**
 				 * 指定每个module的处理位置
 				 * 算法添加位置
 				 */
+//				List<String> moduleNames = getAppToModulesMap().get(tuple.getAppId());
 //				for (String moduleName : moduleNames) {
 //					modulesToDeviceIdMap.put(moduleName, getId());
 //				}
@@ -675,15 +688,11 @@ public class FogDevice extends PowerDatacenter {
 
 
 			}
-			for (String moduleName : tuple.getModulesToDeviceIdMap().keySet()) {
-				if (!tuple.getDestModuleName().equals(moduleName)) {
-					//如果该tuple标记被当前节点处理
-					if (tuple.getModulesToDeviceIdMap().get(moduleName).equals(getId())) {
-						break;
-					}
-					sendPeer(tuple, tuple.getModulesToDeviceIdMap().get(moduleName));
-					NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-				}
+			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+			if (targetDeviceId != getId()) {
+				sendPeer(tuple, targetDeviceId);
+				NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+				return;
 			}
 		}
 
