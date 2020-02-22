@@ -28,8 +28,10 @@ import org.fog.application.AppEdge;
 import org.fog.application.AppLoop;
 import org.fog.application.AppModule;
 import org.fog.application.Application;
+import org.fog.placement.Controller;
 import org.fog.policy.AppModuleAllocationPolicy;
 import org.fog.scheduler.StreamOperatorScheduler;
+import org.fog.test.perfeval.DCNSFog;
 import org.fog.utils.Config;
 import org.fog.utils.FogEvents;
 import org.fog.utils.FogUtils;
@@ -37,7 +39,9 @@ import org.fog.utils.Logger;
 import org.fog.utils.ModuleLaunchConfig;
 import org.fog.utils.NetworkUsageMonitor;
 import org.fog.utils.TimeKeeper;
+import org.hu.Enums;
 import org.hu.algorithm.RandomAllocationPolicy;
+import org.hu.merge.ModuleMerger;
 
 public class FogDevice extends PowerDatacenter {
 	/**
@@ -61,30 +65,20 @@ public class FogDevice extends PowerDatacenter {
 	
 	protected double lockTime;
 	
-	/**	
-	 * ID of the parent Fog Device
-	 */
+
 	protected int parentId;
 	
-	/**
-	 * ID of the Controller
-	 */
+
 	protected int controllerId;
-	/**
-	 * IDs of the children Fog devices
-	 */
+
 	protected List<Integer> childrenIds;
 
 	protected Map<Integer, List<String>> childToOperatorsMap;
 	
-	/**
-	 * Flag denoting whether the link southwards from this FogDevice is busy
-	 */
+
 	protected boolean isSouthLinkBusy;
 	
-	/**
-	 * Flag denoting whether the link northwards from this FogDevice is busy
-	 */
+
 	protected boolean isNorthLinkBusy;
 	
 	protected double uplinkBandwidth;
@@ -467,9 +461,13 @@ public class FogDevice extends PowerDatacenter {
 				while (vm.getCloudletScheduler().isFinishedCloudlets()) {
 					Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
 					if (cl != null) {
-						
 						cloudletCompleted = true;
 						Tuple tuple = (Tuple)cl;
+						/**
+						 * 修改module完成map
+						 */
+						tuple.getModuleCompletedMap().put(tuple.getDestModuleName(), 1);
+
 						TimeKeeper.getInstance().tupleEndedExecution(tuple);
 						Application application = getApplicationMap().get(tuple.getAppId());
 						Logger.debug(getName(), "Completed execution of tuple "+tuple.getCloudletId()+"on "+tuple.getDestModuleName());
@@ -625,23 +623,29 @@ public class FogDevice extends PowerDatacenter {
 	}
 	int numClients=0;
 
-	//收到Tuple
+	/**
+	 * 处理收到的tuple
+	 * @param ev
+	 */
 	protected void processTupleArrival(SimEvent ev){
-		/**
-		 * Test
-		 */
-//		if (getName().equals("d-0")) {
-//			System.out.println("@@@@@ d-0 收到tuple @@@");
-//			Tuple t = (Tuple) ev.getData();
-//			if (t.getModulesToDeviceIdMap() != null) {
-//				System.out.println(t.getModuleCopyMap().get(t.getDestModuleName())+"   deviceId="+getId());
-//			}
-//		}
-
-
-
 
 		Tuple tuple = (Tuple)ev.getData();
+
+		/**
+		 * 生成module是否完成的map
+		 */
+		if (tuple.getModuleCompletedMap() == null) {
+			Map<String, Integer> map = new HashMap<>();
+			Application application = (((Controller) CloudSim.getEntity(getControllerId()))
+					.getApplications()).get(tuple.getAppId());
+			for (AppModule module : application.getModules()) {
+				map.put(module.getName(), 0);
+			}
+			tuple.setModuleCompletedMap(map);
+		}
+
+
+
 
 		if(getName().equals("cloud")){
 			updateCloudTraffic();
@@ -666,7 +670,16 @@ public class FogDevice extends PowerDatacenter {
 		/**
 		 * 如果是边缘计算服务器
 		 */
-		if (getName().startsWith("d")&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+		if ((getFogDeviceType()==Enums.EDGE_SERVER)&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+
+			int edgeServerNum = 0;
+			for (FogDevice fogDevice : allFogDevices) {
+				if (fogDevice.getFogDeviceType() == Enums.CLOUD
+						|| fogDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
+					edgeServerNum += 1;
+				}
+			}
+
 			/**
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
@@ -681,15 +694,28 @@ public class FogDevice extends PowerDatacenter {
 //				for (String moduleName : moduleNames) {
 //					modulesToDeviceIdMap.put(moduleName, getId());
 //				}
+
+				/**
+				 * 子任务汇聚
+				 */
+				ModuleMerger moduleMerger = new ModuleMerger();
+				Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
+				tuple.setModuleGroups(moduleGroups);
+
+
 				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
-
 				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
+
 				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
-
-
 			}
 			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
 			if (targetDeviceId != getId()) {
+				//如果目标是云服务器
+				for (FogDevice fogDevice : allFogDevices) {
+					if (fogDevice.getFogDeviceType() == Enums.CLOUD&&targetDeviceId==fogDevice.getId()) {
+						sendUp(tuple);
+					}
+				}
 				sendPeer(tuple, targetDeviceId);
 				NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
 				return;

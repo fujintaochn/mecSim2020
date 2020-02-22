@@ -18,7 +18,8 @@ public class RandomAllocationPolicy {
     public Map<String, Integer> getRandomAllocationPolicy(String appId) {
         List<FogDevice> edgeServerList = new ArrayList<>();
         for (FogDevice fogDevice : deviceList) {
-            if (fogDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
+            if (fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
+                    ||fogDevice.getFogDeviceType() == Enums.CLOUD) {
                 edgeServerList.add(fogDevice);
             }
         }
@@ -29,6 +30,30 @@ public class RandomAllocationPolicy {
                 for (AppModule module : application.getModules()) {
                     int randomDeviceId = Utils.getRandomDeviceId(edgeServerList);
                     allocationPolicyMap.put(module.getName(), randomDeviceId);
+                }
+            }
+        }
+        return allocationPolicyMap;
+    }
+
+    public Map<String, Integer> getRandomAllocationPolicyAfterMerged(String appId,Map<Integer, List<String>> moduleGroups) {
+        List<FogDevice> edgeServerList = new ArrayList<>();
+        for (FogDevice fogDevice : deviceList) {
+            if (fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
+                    ||fogDevice.getFogDeviceType() == Enums.CLOUD) {
+                edgeServerList.add(fogDevice);
+            }
+        }
+
+        Map<String, Integer> allocationPolicyMap = new HashMap<>();
+        for (Application application : applicationList) {
+            if (application.getAppId().equals(appId)) {
+                for (int i = 0; i < moduleGroups.size(); i++) {
+                    int randomDeviceId = Utils.getRandomDeviceId(edgeServerList);
+                    List<String> moduleNamesInAGroup = moduleGroups.get(i);
+                    for (String moduleName : moduleNamesInAGroup) {
+                        allocationPolicyMap.put(moduleName, randomDeviceId);
+                    }
                 }
             }
         }

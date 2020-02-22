@@ -338,4 +338,34 @@ public class Application {
 	public void setEdgeMap(Map<String, AppEdge> edgeMap) {
 		this.edgeMap = edgeMap;
 	}
+
+
+	public List<AppEdge> getEdgeByDestModuleName(String destModuleName) {
+		List<AppEdge> edgeList = new ArrayList<>();
+		for (AppEdge edge : getEdges()) {
+			if (edge.getDestination().equals(destModuleName)) {
+				edgeList.add(edge);
+			}
+		}
+		return edgeList;
+	}
+
+	public List<AppEdge> getEdgeBySrcModuleName(String srcModuleName) {
+		List<AppEdge> edgeList = new ArrayList<>();
+		for (AppEdge edge : getEdges()) {
+			if (edge.getSource().equals(srcModuleName)) {
+				edgeList.add(edge);
+			}
+		}
+		return edgeList;
+	}
+
+	public AppEdge getEdgeBySrcAndDest(String srcModuleName, String destModuleName) {
+		for (AppEdge edge : getEdges()) {
+			if (edge.getSource().equals(srcModuleName) && edge.getDestination().equals(destModuleName)) {
+				return edge;
+			}
+		}
+		return null;
+	}
 }

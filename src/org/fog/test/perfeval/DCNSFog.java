@@ -48,7 +48,7 @@ public class DCNSFog {
 	static List<Sensor> sensors = new ArrayList<Sensor>();
 	static List<Actuator> actuators = new ArrayList<Actuator>();
 	static int numOfAreas = 5;
-	static int numOfCamerasPerArea = 10;
+	static int numOfCamerasPerArea = 5;
 
 	
 	private static boolean CLOUD = false;
@@ -92,6 +92,10 @@ public class DCNSFog {
 				moduleMapping.addModuleToDevice("object_detector", "cloud"); // placing all instances of Object Detector module in the Cloud
 				moduleMapping.addModuleToDevice("object_tracker", "cloud"); // placing all instances of Object Tracker module in the Cloud
 			}
+			moduleMapping.addModuleToDevice("object_detector", "cloud");
+			moduleMapping.addModuleToDevice("user_interface", "cloud");
+			moduleMapping.addModuleToDevice("object_tracker", "cloud");
+
 
 			moduleMapping.addModuleToDevice("object_detector", "d-0");
 			moduleMapping.addModuleToDevice("user_interface", "d-0");
@@ -144,7 +148,7 @@ public class DCNSFog {
 	 * @param appId
 	 */
 	private static void createFogDevices(int userId, String appId) {
-		FogDevice cloud = createFogDevice("cloud", 44800, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25);
+		FogDevice cloud = createFogDevice("cloud", 44800, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25);//83.25
 		cloud.setFogDeviceType(Enums.CLOUD);
 		cloud.setParentId(-1);
 		fogDevices.add(cloud);
@@ -276,11 +280,11 @@ public class DCNSFog {
 		/*
 		 * Connecting the application modules (vertices) in the application model (directed graph) with edges
 		 */
-		application.addAppEdge("CAMERA", "motion_detector", 1000, 20000, "CAMERA", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
-		application.addAppEdge("motion_detector", "object_detector", 2000, 2000, "MOTION_VIDEO_STREAM", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
-		application.addAppEdge("object_detector", "user_interface", 5000, 2000, "DETECTED_OBJECT", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
-		application.addAppEdge("object_detector", "object_tracker", 1000, 100, "OBJECT_LOCATION", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-		application.addAppEdge("object_tracker", "PTZ_CONTROL", 1000, 28, 100, "PTZ_PARAMS", Tuple.DOWN, AppEdge.ACTUATOR); // adding edge from Object Tracker to PTZ CONTROL (actuator) carrying tuples of type PTZ_PARAMS
+		application.addAppEdge("CAMERA", "motion_detector", 10000, 20000, "CAMERA", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
+		application.addAppEdge("motion_detector", "object_detector", 20000, 2000, "MOTION_VIDEO_STREAM", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
+		application.addAppEdge("object_detector", "user_interface", 50000, 2000, "DETECTED_OBJECT", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
+		application.addAppEdge("object_detector", "object_tracker", 10000, 100, "OBJECT_LOCATION", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+		application.addAppEdge("object_tracker", "PTZ_CONTROL", 100, 2800, 100, "PTZ_PARAMS", Tuple.DOWN, AppEdge.ACTUATOR); // adding edge from Object Tracker to PTZ CONTROL (actuator) carrying tuples of type PTZ_PARAMS
 		
 		/*
 		 * Defining the input-output relationships (represented by selectivity) of the application modules. 
