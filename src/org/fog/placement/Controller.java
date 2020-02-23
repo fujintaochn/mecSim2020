@@ -126,6 +126,9 @@ public class Controller extends SimEntity{
 	
 	private void printPowerDetails() {
 		for(FogDevice fogDevice : getFogDevices()){
+			if (fogDevice.getName().startsWith("m")) {
+				continue;
+			}
 			System.out.println(fogDevice.getName() + " : Energy Consumed = "+fogDevice.getEnergyConsumption());
 		}
 	}

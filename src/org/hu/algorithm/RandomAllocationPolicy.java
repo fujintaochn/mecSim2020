@@ -46,17 +46,15 @@ public class RandomAllocationPolicy {
         }
 
         Map<String, Integer> allocationPolicyMap = new HashMap<>();
-        for (Application application : applicationList) {
-            if (application.getAppId().equals(appId)) {
-                for (int i = 0; i < moduleGroups.size(); i++) {
-                    int randomDeviceId = Utils.getRandomDeviceId(edgeServerList);
-                    List<String> moduleNamesInAGroup = moduleGroups.get(i);
-                    for (String moduleName : moduleNamesInAGroup) {
-                        allocationPolicyMap.put(moduleName, randomDeviceId);
-                    }
-                }
+
+        for (int i = 0; i < moduleGroups.size(); i++) {
+            int randomDeviceId = Utils.getRandomDeviceId(edgeServerList);
+            List<String> moduleNamesInAGroup = moduleGroups.get(i);
+            for (String moduleName : moduleNamesInAGroup) {
+                allocationPolicyMap.put(moduleName, randomDeviceId);
             }
         }
+
         return allocationPolicyMap;
     }
 }

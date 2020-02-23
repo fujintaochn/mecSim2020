@@ -476,6 +476,9 @@ public class FogDevice extends PowerDatacenter {
 						for(Tuple resTuple : resultantTuples){
 							//新tuple继承老tuple资源分配信息
 							resTuple.setModulesToDeviceIdMap(tuple.getModulesToDeviceIdMap());
+							resTuple.setModuleCompletedMap(tuple.getModuleCompletedMap());
+
+
 							resTuple.setModuleCopyMap(new HashMap<String, Integer>(tuple.getModuleCopyMap()));
 							resTuple.getModuleCopyMap().put(((AppModule)vm).getName(), vm.getId());
 							updateTimingsOnSending(resTuple);
@@ -704,7 +707,8 @@ public class FogDevice extends PowerDatacenter {
 
 
 				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
-				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
+//				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
+				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups);
 
 				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}
@@ -716,8 +720,12 @@ public class FogDevice extends PowerDatacenter {
 						sendUp(tuple);
 					}
 				}
-				sendPeer(tuple, targetDeviceId);
-				NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+				if (targetDeviceId == getId()) {
+					sendPeer(tuple, targetDeviceId);
+				} else {
+					sendPeer(tuple, targetDeviceId);
+					NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+				}
 				return;
 			}
 		}
