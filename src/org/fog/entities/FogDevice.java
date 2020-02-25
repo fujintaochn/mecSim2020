@@ -708,7 +708,7 @@ public class FogDevice extends PowerDatacenter {
 
 				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
 //				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
-				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups);
+				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups,controllerId);
 
 				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}

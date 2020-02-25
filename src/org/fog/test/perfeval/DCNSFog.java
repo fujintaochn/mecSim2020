@@ -180,7 +180,7 @@ public class DCNSFog {
 	private static FogDevice addCamera(String id, int userId, String appId, int parentId){
 		FogDevice camera = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
 		camera.setParentId(parentId);
-		Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId, new DeterministicDistribution(500)); // inter-transmission time of camera (sensor) follows a deterministic distribution
+		Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId, new DeterministicDistribution(75)); // inter-transmission time of camera (sensor) follows a deterministic distribution
 		sensors.add(sensor);
 		Actuator ptz = new Actuator("ptz-"+id, userId, appId, "PTZ_CONTROL");
 		actuators.add(ptz);
@@ -283,8 +283,9 @@ public class DCNSFog {
 		application.addAppEdge("CAMERA", "motion_detector", 10000, 20000, "CAMERA", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
 		application.addAppEdge("motion_detector", "object_detector", 20000, 2000, "MOTION_VIDEO_STREAM", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
 		application.addAppEdge("object_detector", "user_interface", 50000, 2000, "DETECTED_OBJECT", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
-		application.addAppEdge("object_detector", "object_tracker", 10000, 100, "OBJECT_LOCATION", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-		application.addAppEdge("object_tracker", "PTZ_CONTROL", 100, 2800, 100, "PTZ_PARAMS", Tuple.DOWN, AppEdge.ACTUATOR); // adding edge from Object Tracker to PTZ CONTROL (actuator) carrying tuples of type PTZ_PARAMS
+		application.addAppEdge("object_detector", "object_tracker", 10000, 800, "OBJECT_LOCATION", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+		//period 100
+		application.addAppEdge("object_tracker", "PTZ_CONTROL",  2800, 500, "PTZ_PARAMS", Tuple.DOWN, AppEdge.ACTUATOR); // adding edge from Object Tracker to PTZ CONTROL (actuator) carrying tuples of type PTZ_PARAMS
 		
 		/*
 		 * Defining the input-output relationships (represented by selectivity) of the application modules. 

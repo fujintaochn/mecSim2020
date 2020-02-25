@@ -30,6 +30,9 @@ public class Sensor extends SimEntity{
 	private int controllerId;
 	private Application app;
 	private double latency;
+
+
+	private long emitTime = 0;
 	
 	public Sensor(String name, int userId, String appId, int gatewayDeviceId, double latency, GeoLocation geoLocation, 
 			Distribution transmitDistribution, int cpuLength, int nwLength, String tupleType, String destModuleName) {
@@ -98,8 +101,9 @@ public class Sensor extends SimEntity{
 
 		int actualTupleId = updateTimings(getSensorName(), tuple.getDestModuleName());
 		tuple.setActualTupleId(actualTupleId);
-		
+		emitTime += 1;
 		send(gatewayDeviceId, getLatency(), FogEvents.TUPLE_ARRIVAL,tuple);
+		System.out.println("sensor 第 "+emitTime+" 次发出任务");
 	}
 	
 	private int updateTimings(String src, String dest){

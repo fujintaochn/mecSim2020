@@ -125,8 +125,8 @@ public class ModuleMerger {
                             newNwMatrix[newNwMatrix.length - 1]
                                     [getIndexInModuleList(newModuleList, toProcessModuleList.get(j))] += nwMatrix[i][j];
                         } else {
-                            newNwMatrix[getIndexInModuleList(toProcessModuleList, toProcessModuleList.get(i))]
-                                    [getIndexInModuleList(toProcessModuleList, toProcessModuleList.get(j))] = nwMatrix[i][j];
+                            newNwMatrix[getIndexInModuleList(newModuleList, toProcessModuleList.get(i))]
+                                    [getIndexInModuleList(newModuleList, toProcessModuleList.get(j))] = nwMatrix[i][j];
                         }
                     }
                 }

@@ -60,7 +60,7 @@ public class CloudSim {
 	private static Calendar calendar = null;
 
 	/** The termination time. */
-	private static double terminateAt = -1;
+	private static double terminateAt = 20000;
 
 	/** The minimal time between events. Events within shorter periods after the last event are discarded. */
 	private static double minTimeBetweenEvents = 0.1;
@@ -880,7 +880,7 @@ public class CloudSim {
 		}
 		while (true) {
 			if (runClockTick() || abruptTerminate) {
-				break;
+//				break;
 			}
 
 			// this block allows termination of simulation at a specific time
