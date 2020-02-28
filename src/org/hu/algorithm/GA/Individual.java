@@ -4,11 +4,14 @@ import javafx.util.Pair;
 
 import java.util.List;
 
-public class Individual {
+public class Individual implements Comparable<Individual> {
     private List<Pair<String, Integer>> Chromosome;
     private double fitness;
 
-
+    @Override
+    public int compareTo(Individual o) {
+        return (int)(this.fitness-o.fitness);
+    }
 
     public List<Pair<String, Integer>> getChromosome() {
         return Chromosome;
