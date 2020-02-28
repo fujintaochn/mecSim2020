@@ -19,7 +19,6 @@ public class GA {
     private int populationSize = 600;
     private int iterations = 600;
     private double eliteRate = 0.2;
-    private double parentRate = 0.8;
     private double survivalRate = 0.8;
     private double crossoverRate = 0.2;
     private double mutationRate = 0.15;
@@ -76,6 +75,9 @@ public class GA {
                 individual.setFitness(getFitness());
             }
             population.sort(Comparator.naturalOrder());
+            //处理死亡群体
+            int survivalNum = (int)(survivalRate * populationSize);
+            population = population.subList(0, survivalNum);
 
             List<Individual> newPopulation = new ArrayList<>();
             /**
@@ -87,7 +89,7 @@ public class GA {
             int indexElite = (int) (population.size() * eliteRate);
             newPopulation.addAll(population.subList(0, indexElite));
             //交配
-            int indexCrossover = (int) (population.size() * parentRate);
+            int indexCrossover = survivalNum;
             int j = 0;
             while (j + 1 < indexCrossover) {
                 Individual father = population.get(j);
@@ -102,6 +104,7 @@ public class GA {
              */
             for (int p = indexElite; p < indexCrossover; p++) {
                 Individual individual = population.get(p);
+                newPopulation.add(individual);
                 List<Pair<String, Integer>> chromosome = individual.getChromosome();
                 int mutationNum = (int) (mutationRate * chromosome.size());
                 List<Integer> indexList = getRandomChromosomeIndex(mutationNum, chromosome.size());
@@ -112,10 +115,15 @@ public class GA {
                     chromosome.set(index, pair);
                 }
             }
+
+            population = newPopulation;
+
+
         }
-
-
-
+        Individual topIndividual = population.get(0);
+        for (Pair<String, Integer> pair : topIndividual.getChromosome()) {
+            resourceAllocationPolicy.put(pair.getKey(), pair.getValue());
+        }
 
         return resourceAllocationPolicy;
 
