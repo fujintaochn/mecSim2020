@@ -92,7 +92,7 @@ public class ModuleMerger {
         }
 
         //临时测试使用
-        serversNum = 4;
+        serversNum = 7;
         while (toProcessModuleList.size() > serversNum) {
             //找到通信量最大的边的原宿
             Pair<Integer, Integer> srcAndDest = getMaxNwSrcAndDest(nwMatrix);

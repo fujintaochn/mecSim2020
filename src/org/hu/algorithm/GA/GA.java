@@ -72,7 +72,7 @@ public class GA {
              */
             for (Individual individual : population) {
                 //TODO 适应度函数待完成
-                individual.setFitness(getFitness());
+                individual.setFitness(getFitness(individual));
             }
             population.sort(Comparator.naturalOrder());
             //处理死亡群体
@@ -188,7 +188,11 @@ public class GA {
         }
         return indexList;
     }
-    private double getFitness() {
+    private double getFitness(Individual individual) {
+        List<Pair<String, Integer>> chromosome = individual.getChromosome();
+
+        
+
         //TODO
         double fitness = 0;
         return fitness;

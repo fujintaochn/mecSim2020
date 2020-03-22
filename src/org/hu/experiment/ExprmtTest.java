@@ -48,7 +48,7 @@ public class ExprmtTest {
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
     static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 5;
+    static int numOfCamerasPerArea = 10;
 
 
     private static boolean CLOUD = false;
