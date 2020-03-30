@@ -40,6 +40,7 @@ import org.fog.utils.ModuleLaunchConfig;
 import org.fog.utils.NetworkUsageMonitor;
 import org.fog.utils.TimeKeeper;
 import org.hu.Enums;
+import org.hu.algorithm.GA.GA;
 import org.hu.algorithm.RandomAllocationPolicy;
 import org.hu.merge.ModuleMerger;
 
@@ -687,7 +688,7 @@ public class FogDevice extends PowerDatacenter {
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
 			if (tuple.getModulesToDeviceIdMap() == null) {
-				Map<String, Integer> modulesToDeviceIdMap;
+//				Map<String, Integer> modulesToDeviceIdMap;
 
 				/**
 				 * 指定每个module的处理位置
@@ -701,14 +702,16 @@ public class FogDevice extends PowerDatacenter {
 				/**
 				 * 子任务汇聚
 				 */
-				ModuleMerger moduleMerger = new ModuleMerger();
-				Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
-				tuple.setModuleGroups(moduleGroups);
+//				ModuleMerger moduleMerger = new ModuleMerger();
+//				Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
+//				tuple.setModuleGroups(moduleGroups);
 
 
-				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+//				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
 //				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
-				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups,controllerId);
+//				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups,controllerId);
+				GA ga = new GA();
+				Map<String, Integer> modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy(tuple, allFogDevices, controllerId);
 
 				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}

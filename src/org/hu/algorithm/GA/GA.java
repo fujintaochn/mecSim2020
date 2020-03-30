@@ -2,6 +2,8 @@ package org.hu.algorithm.GA;
 
 import com.sun.org.apache.xerces.internal.impl.dv.xs.IntegerDV;
 import javafx.util.Pair;
+import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
+import org.cloudbus.cloudsim.Vm;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.fog.application.AppModule;
 import org.fog.application.Application;
@@ -16,8 +18,8 @@ import java.util.*;
 
 public class GA {
 
-    private int populationSize = 600;
-    private int iterations = 600;
+    private int populationSize = 100;
+    private int iterations = 100;
     private double eliteRate = 0.2;
     private double survivalRate = 0.8;
     private double crossoverRate = 0.2;
@@ -27,13 +29,13 @@ public class GA {
     public Map<String, Integer> getGAResourceAllocationPolicy(Tuple tuple, List<FogDevice> deviceList,int controllerId) {
         Map<String, Integer> resourceAllocationPolicy = new HashMap<>();
 
-        //生成设备id列表，idToDeviceMap
-        List<Integer> fogDeviceIdList = new ArrayList<>();
-        Map<Integer, FogDevice> idToDeviceMap = new HashMap<>();
-        for (FogDevice fogDevice : deviceList) {
-            idToDeviceMap.put(fogDevice.getId(), fogDevice);
-            fogDeviceIdList.add(fogDevice.getId());
-        }
+//        //生成设备id列表，idToDeviceMap
+//        List<Integer> fogDeviceIdList = new ArrayList<>();
+//        Map<Integer, FogDevice> idToDeviceMap = new HashMap<>();
+//        for (FogDevice fogDevice : deviceList) {
+//            idToDeviceMap.put(fogDevice.getId(), fogDevice);
+//            fogDeviceIdList.add(fogDevice.getId());
+//        }
         //生成需要分配计算资源的application
         Controller controller = (Controller) CloudSim.getEntity(controllerId);
         Application application = controller.getApplications().get(tuple.getAppId());
@@ -57,7 +59,7 @@ public class GA {
         /**
          * 生成原始种群
          */
-        List<Individual> population = new ArrayList<>();
+        List<Individual> population = new LinkedList<>();
         for (int i = 0; i < populationSize; i++) {
             Individual individual = getRandomIndividual(moduleNameList, fogResourceIdList);
             population.add(individual);
@@ -71,40 +73,40 @@ public class GA {
              * 计算每一个体的适应度值
              */
             for (Individual individual : population) {
-                //TODO 适应度函数待完成
                 individual.setFitness(getFitness(individual));
             }
-            population.sort(Comparator.naturalOrder());
-            //处理死亡群体
+            Collections.sort(population,Collections.reverseOrder());
+            //死亡群体不进入下一代
             int survivalNum = (int)(survivalRate * populationSize);
-            population = population.subList(0, survivalNum);
-
-            List<Individual> newPopulation = new ArrayList<>();
+            List<Individual> survivors = population.subList(0, survivalNum);
+            List<Individual> newPopulation = new LinkedList<>();
             /**
              * 精英保持不变
              * 交配产生新个体
              * 淘汰死亡群体
              */
-            //精英保持不变放入新种群
+//            //精英保持不变放入新种群
             int indexElite = (int) (population.size() * eliteRate);
-            newPopulation.addAll(population.subList(0, indexElite));
+//            newPopulation.addAll(population.subList(0, indexElite));
             //交配
-            int indexCrossover = survivalNum;
+            int indexCrossover = survivors.size();
             int j = 0;
+            List<Individual> offsprings = new LinkedList<>();
             while (j + 1 < indexCrossover) {
-                Individual father = population.get(j);
-                Individual mother = population.get(j + 1);
+                Individual father = survivors.get(j);
+                Individual mother = survivors.get(j + 1);
                 List<Individual> offspring = getOffspring(father, mother);
                 for (Individual individual : offspring) {
-                    newPopulation.add(individual);
+                    offsprings.add(individual);
                 }
+                j += 2;
             }
             /**
              * 变异
              */
-            for (int p = indexElite; p < indexCrossover; p++) {
-                Individual individual = population.get(p);
-                newPopulation.add(individual);
+            for (int p = indexElite; p < survivors.size(); p++) {
+                Individual individual = survivors.get(p);
+//                newPopulation.add(individual);
                 List<Pair<String, Integer>> chromosome = individual.getChromosome();
                 int mutationNum = (int) (mutationRate * chromosome.size());
                 List<Integer> indexList = getRandomChromosomeIndex(mutationNum, chromosome.size());
@@ -115,6 +117,7 @@ public class GA {
                     chromosome.set(index, pair);
                 }
             }
+            newPopulation.addAll(survivors);
 
             population = newPopulation;
 
@@ -188,13 +191,20 @@ public class GA {
         }
         return indexList;
     }
+    //当前适应度函数为每个基因位上的module 到目标device后，等待任务数量
     private double getFitness(Individual individual) {
         List<Pair<String, Integer>> chromosome = individual.getChromosome();
-
-        
-
-        //TODO
-        double fitness = 0;
-        return fitness;
+        double waitingTupleNum = 0;
+        for (Pair<String, Integer> genBit : chromosome) {
+            FogDevice targetDevice = (FogDevice) CloudSim.getEntity(genBit.getValue());
+            List<AppModule> moduleList = targetDevice.getHost().getVmList();
+            for (AppModule appModule : moduleList) {
+                if (appModule.getName().equals(genBit.getKey())) {
+                    CloudletSchedulerTimeShared cloudletScheduler = (CloudletSchedulerTimeShared) appModule.getCloudletScheduler();
+                    waitingTupleNum += cloudletScheduler.getCloudletExecList().size();
+                }
+            }
+        }
+        return waitingTupleNum;
     }
 }
