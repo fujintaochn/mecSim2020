@@ -51,11 +51,10 @@ public class ExprmtTest {
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
     static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 1;
+    static int numOfCamerasPerArea = 5;
 
 
     private static boolean CLOUD = false;
-
     public static void main(String[] args) {
 
         Log.printLine("Starting Experiment1...");
@@ -200,7 +199,8 @@ public class ExprmtTest {
     private static FogDevice addCamera(String id, int userId, String appId, int parentId){
         FogDevice camera = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         camera.setParentId(parentId);
-        Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId, new DeterministicDistribution(200)); // inter-transmission time of camera (sensor) follows a deterministic distribution
+        Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId
+                , new DeterministicDistribution(200)); // inter-transmission time of camera (sensor) follows a deterministic distribution
         sensors.add(sensor);
         Actuator ptz = new Actuator("ptz-"+id, userId, appId, "PTZ_CONTROL");
         actuators.add(ptz);

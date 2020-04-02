@@ -238,7 +238,7 @@ public class FogDevice extends PowerDatacenter {
 	
 	/**
 	 * Overrides this method when making a new and different type of resource. <br>
-	 * <b>NOTE:</b> You do not need to override {@link #body()} method, if you use this method.
+	 * <b>NOTE:</b> You do not need to override  method, if you use this method.
 	 * 
 	 * @pre $none
 	 * @post $none
@@ -688,13 +688,16 @@ public class FogDevice extends PowerDatacenter {
 			/**
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
-			RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+
 
 			if (tuple.getModulesToDeviceIdMap() == null) {
+				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+
 				Map<String, Integer> modulesToDeviceIdMap;
 				if (ExprmtTest.isMerge==1){
 					ModuleMerger moduleMerger = new ModuleMerger();
-					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
+					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups
+							(tuple,getControllerId(),edgeServerNum);
 					tuple.setModuleGroups(moduleGroups);
 					modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(), moduleGroups, controllerId);
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);

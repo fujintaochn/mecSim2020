@@ -20,9 +20,9 @@ import java.util.*;
 
 public class GA {
 
-    private int populationSize = 100;
-    private int iterations = 100;
-    private double eliteRate = 0.2;
+    private int populationSize = 250;
+    private int iterations = 300;
+    private double eliteRate = 0.3;
     private double survivalRate = 0.8;
     private double crossoverRate = 0.2;
     private double mutationRate = 0.15;
@@ -163,6 +163,15 @@ public class GA {
         Individual child2 = new Individual();
         List<Pair<String, Integer>> chromosomeChild1 = new ArrayList<>();
         List<Pair<String, Integer>> chromosomeChild2 = new ArrayList<>();
+        /**
+         * 初始化染色体
+         */
+        for (int i = 0; i < chromosomeF.size(); i++) {
+            chromosomeChild1.add(new Pair<String, Integer>("",0));
+            chromosomeChild2.add(new Pair<String, Integer>("",0));
+        }
+
+
         //交换选中的基因位
         for (Integer index : indexList) {
             chromosomeChild1.set(index, chromosomeM.get(index));
