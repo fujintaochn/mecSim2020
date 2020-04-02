@@ -44,11 +44,14 @@ import org.hu.Enums;
 public class ExprmtTest {
     public static List<FogDevice> fogDevices = new ArrayList<FogDevice>();
     public static List<Application> allApplication = new ArrayList<>();
+    public static int isMerge = 0;
+    public static int isGa = 1;
+
 
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
     static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 10;
+    static int numOfCamerasPerArea = 1;
 
 
     private static boolean CLOUD = false;

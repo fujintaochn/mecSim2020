@@ -42,6 +42,7 @@ import org.fog.utils.TimeKeeper;
 import org.hu.Enums;
 import org.hu.algorithm.GA.GA;
 import org.hu.algorithm.RandomAllocationPolicy;
+import org.hu.experiment.ExprmtTest;
 import org.hu.merge.ModuleMerger;
 
 public class FogDevice extends PowerDatacenter {
@@ -687,8 +688,25 @@ public class FogDevice extends PowerDatacenter {
 			/**
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
+			RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+
 			if (tuple.getModulesToDeviceIdMap() == null) {
-//				Map<String, Integer> modulesToDeviceIdMap;
+				Map<String, Integer> modulesToDeviceIdMap;
+				if (ExprmtTest.isMerge==1){
+					ModuleMerger moduleMerger = new ModuleMerger();
+					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
+					tuple.setModuleGroups(moduleGroups);
+					modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(), moduleGroups, controllerId);
+					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+
+				} else if (ExprmtTest.isGa==1) {
+					GA ga = new GA();
+					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy
+							(tuple, allFogDevices, controllerId);
+					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+
+				}
+
 
 				/**
 				 * 指定每个module的处理位置
@@ -702,18 +720,16 @@ public class FogDevice extends PowerDatacenter {
 				/**
 				 * 子任务汇聚
 				 */
-//				ModuleMerger moduleMerger = new ModuleMerger();
-//				Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups(tuple,getControllerId(),edgeServerNum);
-//				tuple.setModuleGroups(moduleGroups);
 
 
-//				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
+
+
 //				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicy(tuple.getAppId());
-//				modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(),moduleGroups,controllerId);
-				GA ga = new GA();
-				Map<String, Integer> modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy(tuple, allFogDevices, controllerId);
 
-				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+//				GA ga = new GA();
+//				Map<String, Integer> modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy(tuple, allFogDevices, controllerId);
+//
+//				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}
 			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
 			if (targetDeviceId != getId()) {

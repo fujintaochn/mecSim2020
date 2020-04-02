@@ -3,6 +3,7 @@ package org.hu.algorithm.GA;
 import com.sun.org.apache.xerces.internal.impl.dv.xs.IntegerDV;
 import javafx.util.Pair;
 import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
+import org.cloudbus.cloudsim.ResCloudlet;
 import org.cloudbus.cloudsim.Vm;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.fog.application.AppModule;
@@ -10,6 +11,7 @@ import org.fog.application.Application;
 import org.fog.entities.FogDevice;
 import org.fog.entities.Tuple;
 import org.fog.placement.Controller;
+import org.fog.scheduler.TupleScheduler;
 import org.fog.test.perfeval.DCNSFog;
 import org.hu.Enums;
 import org.hu.algorithm.Utils;
@@ -197,12 +199,15 @@ public class GA {
         double waitingTupleNum = 0;
         for (Pair<String, Integer> genBit : chromosome) {
             FogDevice targetDevice = (FogDevice) CloudSim.getEntity(genBit.getValue());
-            List<AppModule> moduleList = targetDevice.getHost().getVmList();
-            for (AppModule appModule : moduleList) {
-                if (appModule.getName().equals(genBit.getKey())) {
-                    CloudletSchedulerTimeShared cloudletScheduler = (CloudletSchedulerTimeShared) appModule.getCloudletScheduler();
-                    waitingTupleNum += cloudletScheduler.getCloudletExecList().size();
+            List<Vm> vmList = targetDevice.getHost().getVmList();
+            for (Vm vm : vmList) {
+                AppModule module=(AppModule)vm;
+                if (module.getName().equals(genBit.getKey())) {
+                    List<ResCloudlet> execList = ((TupleScheduler) vm.getCloudletScheduler())
+                            .getCloudletExecList();
+                    waitingTupleNum += execList.size();
                 }
+
             }
         }
         return waitingTupleNum;
