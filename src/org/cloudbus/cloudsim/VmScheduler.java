@@ -192,7 +192,7 @@ public abstract class VmScheduler {
 	 * 
 	 * @return the mips map
 	 */
-	protected Map<String, List<Double>> getMipsMap() {
+	public Map<String, List<Double>> getMipsMap() {
 		return mipsMap;
 	}
 
@@ -276,5 +276,6 @@ public abstract class VmScheduler {
 	protected void setPeMap(Map<String, List<Pe>> peMap) {
 		this.peMap = peMap;
 	}
+
 
 }

@@ -10,7 +10,7 @@ public class Individual implements Comparable<Individual> {
 
     @Override
     public int compareTo(Individual o) {
-        return (int)(this.fitness-o.fitness);
+        return (int)(this.fitness * 1000 - o.fitness * 1000);
     }
 
     public List<Pair<String, Integer>> getChromosome() {

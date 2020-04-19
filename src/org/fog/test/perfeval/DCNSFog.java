@@ -153,7 +153,7 @@ public class DCNSFog {
 		cloud.setParentId(-1);
 		fogDevices.add(cloud);
 		FogDevice proxy = createFogDevice("d-proxy", 2800, 4000, 10000, 10000, 1, 0.0, 107.339,10 );//83.4333
-		proxy.setFogDeviceType(Enums.EDGE_SERVER);
+		proxy.setFogDeviceType(Enums.PROXY);
 		proxy.setParentId(cloud.getId());
 		proxy.setUplinkLatency(100); // latency of connection between proxy server and cloud is 100 ms
 		fogDevices.add(proxy);

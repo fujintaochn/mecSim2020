@@ -8,13 +8,7 @@ import java.util.Map;
 import java.util.Queue;
 
 import org.apache.commons.math3.util.Pair;
-import org.cloudbus.cloudsim.Cloudlet;
-import org.cloudbus.cloudsim.Host;
-import org.cloudbus.cloudsim.Log;
-import org.cloudbus.cloudsim.Pe;
-import org.cloudbus.cloudsim.Storage;
-import org.cloudbus.cloudsim.Vm;
-import org.cloudbus.cloudsim.VmAllocationPolicy;
+import org.cloudbus.cloudsim.*;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEvent;
@@ -637,7 +631,7 @@ public class FogDevice extends PowerDatacenter {
 		Tuple tuple = (Tuple)ev.getData();
 
 		/**
-		 * 生成module是否完成的map
+		 * 初始化modules是否完成的map
 		 */
 		if (tuple.getModuleCompletedMap() == null) {
 			Map<String, Integer> map = new HashMap<>();
@@ -648,8 +642,6 @@ public class FogDevice extends PowerDatacenter {
 			}
 			tuple.setModuleCompletedMap(map);
 		}
-
-
 
 
 		if(getName().equals("cloud")){
@@ -665,22 +657,67 @@ public class FogDevice extends PowerDatacenter {
 		
 		if(FogUtils.appIdToGeoCoverageMap.containsKey(tuple.getAppId())){
 		}
-		
+
+		//计算任务完成
 		if(tuple.getDirection() == Tuple.ACTUATOR){
 			sendTupleToActuator(tuple);
 			return;
 		}
 
+		/**
+		 * Cloud处理
+		 * review！！！
+		 */
+		if (getFogDeviceType() == Enums.CLOUD&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+			if (targetDeviceId != getId()) {
+				int proxyId=0;
+				for (FogDevice fogDevice : allFogDevices) {
+					if (fogDevice.getName().startsWith("d-p")) {
+						proxyId = fogDevice.getId();
+					}
+				}
+				sendDown(tuple, proxyId);
+				NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+				return;
+			}
+		}
 
 		/**
-		 * 如果是边缘计算服务器
+		 * proxy处理
 		 */
-		if ((getFogDeviceType()==Enums.EDGE_SERVER)&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+		if (getName().startsWith("d-p")&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+			if (targetDeviceId != getId()) {
+				int cloudId=0;
+				for (FogDevice fogDevice : allFogDevices) {
+					if (fogDevice.getFogDeviceType() == Enums.CLOUD) {
+						cloudId = fogDevice.getId();
+					}
+				}
+				if (targetDeviceId == cloudId) {
+					sendUp(tuple);
+					return;
+				}else{
+					sendDown(tuple, targetDeviceId);
+					NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+					return;
+				}
+
+			}
+		}
+
+
+		/**
+		 * 边缘计算服务器处理
+		 */
+		if (((getFogDeviceType()==Enums.EDGE_SERVER)||(getFogDeviceType()==Enums.PROXY))&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
 
 			int edgeServerNum = 0;
 			for (FogDevice fogDevice : allFogDevices) {
 				if (fogDevice.getFogDeviceType() == Enums.CLOUD
-						|| fogDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
+						|| fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
+						|| fogDevice.getFogDeviceType() == Enums.PROXY) {
 					edgeServerNum += 1;
 				}
 			}
@@ -704,8 +741,9 @@ public class FogDevice extends PowerDatacenter {
 
 				} else if (ExprmtTest.isGa==1) {
 					GA ga = new GA();
+
 					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy
-							(tuple, allFogDevices, controllerId);
+							(getId(), tuple, allFogDevices, controllerId);
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 
 				}
@@ -1129,5 +1167,22 @@ public class FogDevice extends PowerDatacenter {
 
 	public void setFogDeviceType(int fogDeviceType) {
 		this.fogDeviceType = fogDeviceType;
+	}
+
+	public double getModuleMipsByModuleName(String moduleName) {
+		String uid;
+		for (Vm vm : getVmList()) {
+			AppModule appModule = (AppModule) vm;
+			if (appModule.getName().equals(moduleName)){
+				uid = appModule.getUid();
+				List<Double> mipsList = getCharacteristics().getHostList().get(0).getVmScheduler().getMipsMap().get(uid);
+				double mips = 0;
+				for (Double aMips : mipsList) {
+					mips += aMips;
+				}
+				return mips;
+			}
+		}
+		return -1;
 	}
 }

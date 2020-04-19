@@ -21,7 +21,8 @@ public class RandomAllocationPolicy {
         Controller controller = (Controller) CloudSim.getEntity(controllerId);
         for (FogDevice fogDevice : controller.getFogDevices()) {
             if (fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
-                    ||fogDevice.getFogDeviceType() == Enums.CLOUD) {
+                    ||fogDevice.getFogDeviceType() == Enums.CLOUD
+                    ||fogDevice.getFogDeviceType() == Enums.PROXY) {
                 edgeServerList.add(fogDevice);
             }
         }
@@ -45,7 +46,8 @@ public class RandomAllocationPolicy {
 
         for (FogDevice fogDevice : ((Controller)CloudSim.getEntity(controllerId)).getFogDevices()) {
             if (fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
-                    ||fogDevice.getFogDeviceType() == Enums.CLOUD) {
+                    ||fogDevice.getFogDeviceType() == Enums.CLOUD
+                    ||fogDevice.getFogDeviceType() == Enums.PROXY) {
                 edgeServerList.add(fogDevice);
             }
         }

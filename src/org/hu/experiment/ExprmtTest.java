@@ -51,7 +51,7 @@ public class ExprmtTest {
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
     static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 5;
+    static int numOfCamerasPerArea = 1;
 
 
     private static boolean CLOUD = false;
@@ -171,8 +171,8 @@ public class ExprmtTest {
         cloud.setFogDeviceType(Enums.CLOUD);
         cloud.setParentId(-1);
         fogDevices.add(cloud);
-        FogDevice proxy = createFogDevice("d-proxy", 2800, 4000, 10000, 10000, 1, 0.0, 107.339,10 );//83.4333
-        proxy.setFogDeviceType(Enums.EDGE_SERVER);
+        FogDevice proxy = createFogDevice("d-proxy", 2800, 4000, 10000, 10000, 1, 0.0, 107.339,83.4333 );//83.4333
+        proxy.setFogDeviceType(Enums.PROXY);
         proxy.setParentId(cloud.getId());
         proxy.setUplinkLatency(100); // latency of connection between proxy server and cloud is 100 ms
         fogDevices.add(proxy);
@@ -182,7 +182,7 @@ public class ExprmtTest {
     }
 
     private static FogDevice addArea(String id, int userId, String appId, int parentId){
-        FogDevice router = createFogDevice("d-"+id, 2800, 4000, 10000, 10000, 1, 0.0, 107.339, 10);//83.4333
+        FogDevice router = createFogDevice("d-"+id, 7000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
         router.setFogDeviceType(Enums.EDGE_SERVER);
         fogDevices.add(router);
         router.setUplinkLatency(2); // latency of connection between router and proxy server is 2 ms
@@ -200,7 +200,7 @@ public class ExprmtTest {
         FogDevice camera = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         camera.setParentId(parentId);
         Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId
-                , new DeterministicDistribution(200)); // inter-transmission time of camera (sensor) follows a deterministic distribution
+                , new DeterministicDistribution(500)); // inter-transmission time of camera (sensor) follows a deterministic distribution
         sensors.add(sensor);
         Actuator ptz = new Actuator("ptz-"+id, userId, appId, "PTZ_CONTROL");
         actuators.add(ptz);
@@ -303,7 +303,7 @@ public class ExprmtTest {
         /*
          * Connecting the application modules (vertices) in the application model (directed graph) with edges
          */
-        application.addAppEdge("CAMERA", "motion_detector", 10000, 20000, "CAMERA", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
+        application.addAppEdge("CAMERA", "motion_detector", 1000, 20000, "CAMERA", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("motion_detector", "A", 10000, 20000, "m-a", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("A", "B", 8000, 15000, "a-b", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
         application.addAppEdge("A", "C", 5000, 10000, "a-c", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
