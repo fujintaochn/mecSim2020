@@ -1,10 +1,5 @@
 package org.hu.experiment;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
-
 import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.Pe;
@@ -18,12 +13,7 @@ import org.fog.application.AppEdge;
 import org.fog.application.AppLoop;
 import org.fog.application.Application;
 import org.fog.application.selectivity.FractionalSelectivity;
-import org.fog.entities.Actuator;
-import org.fog.entities.FogBroker;
-import org.fog.entities.FogDevice;
-import org.fog.entities.FogDeviceCharacteristics;
-import org.fog.entities.Sensor;
-import org.fog.entities.Tuple;
+import org.fog.entities.*;
 import org.fog.placement.Controller;
 import org.fog.placement.ModuleMapping;
 import org.fog.placement.ModulePlacementEdgewards;
@@ -36,12 +26,12 @@ import org.fog.utils.TimeKeeper;
 import org.fog.utils.distribution.DeterministicDistribution;
 import org.hu.Enums;
 
-/**
- * Simulation setup for case study 2 - Intelligent Surveillance
- * @author Harshit Gupta
- *
- */
-public class ExprmtTest {
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.List;
+
+public class EnvironmentMonitoring {
     public static List<FogDevice> fogDevices = new ArrayList<FogDevice>();
     public static List<Application> allApplication = new ArrayList<>();
     public static int isMerge = 0;
@@ -50,10 +40,11 @@ public class ExprmtTest {
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
     static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 5;
+    static int numOfCamerasPerArea = 1;
 
 
     private static boolean CLOUD = false;
+
     public static void main(String[] args) {
 
         Log.printLine("Starting Experiment1...");
@@ -181,7 +172,7 @@ public class ExprmtTest {
     }
 
     private static FogDevice addArea(String id, int userId, String appId, int parentId){
-        FogDevice router = createFogDevice("d-"+id, 20*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
+        FogDevice router = createFogDevice("d-"+id, 10*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
         router.setFogDeviceType(Enums.EDGE_SERVER);
         fogDevices.add(router);
         router.setUplinkLatency(2); // latency of connection between router and proxy server is 2 ms
@@ -199,7 +190,7 @@ public class ExprmtTest {
         FogDevice camera = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         camera.setParentId(parentId);
         Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId
-                , new DeterministicDistribution(700)); // inter-transmission time of camera (sensor) follows a deterministic distribution
+                , new DeterministicDistribution(200)); // inter-transmission time of camera (sensor) follows a deterministic distribution
         sensors.add(sensor);
         Actuator ptz = new Actuator("ptz-"+id, userId, appId, "PTZ_CONTROL");
         actuators.add(ptz);
@@ -343,4 +334,5 @@ public class ExprmtTest {
         application.setLoops(loops);
         return application;
     }
+
 }

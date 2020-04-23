@@ -711,7 +711,8 @@ public class FogDevice extends PowerDatacenter {
 		/**
 		 * 边缘计算服务器处理
 		 */
-		if (((getFogDeviceType()==Enums.EDGE_SERVER)||(getFogDeviceType()==Enums.PROXY))&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+		if (((getFogDeviceType()==Enums.EDGE_SERVER)||(getFogDeviceType()==Enums.PROXY)||getFogDeviceType()==Enums.CLOUD)
+				&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
 
 			int edgeServerNum = 0;
 			for (FogDevice fogDevice : allFogDevices) {
@@ -772,21 +773,59 @@ public class FogDevice extends PowerDatacenter {
 //
 //				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}
+			//tuple的处理或转发
 			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
 			if (targetDeviceId != getId()) {
 				//如果目标是云服务器
-				for (FogDevice fogDevice : allFogDevices) {
-					if (fogDevice.getFogDeviceType() == Enums.CLOUD&&targetDeviceId==fogDevice.getId()) {
-						sendUp(tuple);
+				//Cloud
+				FogDevice targetDevice = getFogDeviceById(targetDeviceId);
+				if (getFogDeviceType()==Enums.CLOUD){
+					//Cloud -> Proxy or Edge
+					if (targetDevice.getFogDeviceType() == Enums.PROXY
+							|| targetDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
+						List<Integer> childrenIdList = getChildrenIds();
+						String areaId = targetDevice.getName().substring(2, 3);
+						int targetChildId = 0;
+						for (Integer childId : childrenIdList) {
+							FogDevice child = getFogDeviceById(childId);
+							if (child.getName().substring(2, 3).equals(areaId)) {
+								targetChildId = child.getId();
+							}
+						}
+						sendDown(tuple, targetDeviceId);
+						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+						return;
 					}
 				}
-				if (targetDeviceId == getId()) {
-					sendPeer(tuple, targetDeviceId);
-				} else {
-					sendPeer(tuple, targetDeviceId);
-					NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+
+				//Proxy
+				if (getFogDeviceType() == Enums.PROXY) {
+					//proxy -> cloud
+					if (targetDevice.getFogDeviceType() == Enums.CLOUD) {
+						sendUp(tuple);
+						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+						return;
+					} else {
+						//proxy -> edge
+						sendDown(tuple, targetDeviceId);
+						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+						return;
+					}
 				}
-				return;
+
+				//Edge
+				if (getFogDeviceType() == Enums.EDGE_SERVER) {
+					if (targetDevice.getFogDeviceType() == Enums.CLOUD
+							|| targetDevice.getFogDeviceType() == Enums.PROXY) {
+						sendUp(tuple);
+						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+						return;
+					} else {
+						sendPeer(tuple, targetDeviceId);
+						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+						return;
+					}
+				}
 			}
 		}
 
@@ -1169,20 +1208,46 @@ public class FogDevice extends PowerDatacenter {
 		this.fogDeviceType = fogDeviceType;
 	}
 
+	public double getModuleFixedMipsByModuleName(String moduleName) {
+		for (Vm vm : getVmList()) {
+			AppModule appModule = (AppModule) vm;
+			if (appModule.getName().equals(moduleName)){
+				return appModule.getMips();
+			}
+		}
+		return -1;
+	}
+
 	public double getModuleMipsByModuleName(String moduleName) {
 		String uid;
 		for (Vm vm : getVmList()) {
 			AppModule appModule = (AppModule) vm;
 			if (appModule.getName().equals(moduleName)){
-				uid = appModule.getUid();
-				List<Double> mipsList = getCharacteristics().getHostList().get(0).getVmScheduler().getMipsMap().get(uid);
+//				uid = appModule.getUid();
+//				List<Double> mipsList = getCharacteristics().getHostList().get(0).getVmScheduler().getMipsMap().get(uid);
+//				double mips = 0;
+//				for (Double aMips : mipsList) {
+//					mips += aMips;
+//				}
+//				return mips;
+				List<Double> mipsShares = appModule.getCloudletScheduler().getCurrentMipsShare();
 				double mips = 0;
-				for (Double aMips : mipsList) {
-					mips += aMips;
+				for (Double num : mipsShares) {
+					mips += num;
 				}
 				return mips;
 			}
 		}
 		return -1;
 	}
+
+	private FogDevice getFogDeviceById(int fogDeviceId) {
+		for (FogDevice fogDevice : allFogDevices) {
+			if (fogDevice.getId() == fogDeviceId) {
+				return fogDevice;
+			}
+		}
+		return null;
+	}
+
 }

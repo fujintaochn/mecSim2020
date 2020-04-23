@@ -18,13 +18,13 @@ import java.util.*;
 
 public class GA {
 
-    private int populationSize = 200;
-    private int iterations = 400;
-    private double eliteRate = 0.2;
-    private double survivalRate = 0.4;
+    private int populationSize = 100;
+    private int iterations = 50;
+    private double eliteRate = 0.18;
+    private double survivalRate = 0.5;
     private double crossoverRate = 0.35;
     private double mutationBitRate = 0.17;
-    private double mutationRate = 0.07;
+    private double mutationRate = 0.1;
 
     private List<FogDevice> fogDevicesList;
 
@@ -127,11 +127,13 @@ public class GA {
 
             }
             newPopulation.addAll(survivors);
+            newPopulation.addAll(offsprings);
 
             population = newPopulation;
 
 
         }
+        Collections.sort(population);
         Individual topIndividual = population.get(0);
         for (Pair<String, Integer> pair : topIndividual.getChromosome()) {
             resourceAllocationPolicy.put(pair.getKey(), pair.getValue());
@@ -255,7 +257,8 @@ public class GA {
             List<AppEdge> edgeList = application.getEdgeByDestModuleName(pair.getKey());
             if (edgeList.size() > 0) {
                 FogDevice targetDevice = getFogDeviceById(pair.getValue());
-                double mips = targetDevice.getModuleMipsByModuleName(pair.getKey());
+//                double mips = targetDevice.getModuleMipsByModuleName(pair.getKey());
+                double mips = targetDevice.getModuleFixedMipsByModuleName(pair.getKey());
                 int cpuLength = 0;
                 for (AppEdge edge : edgeList) {
                     cpuLength += edge.getTupleCpuLength();
@@ -282,7 +285,8 @@ public class GA {
             for (Vm vm : targetDevice.getVmList()) {
                 AppModule module = (AppModule) vm;
                 if (module.getName().equals(moduleName)) {
-                    moduleMips = targetDevice.getModuleMipsByModuleName(pair.getKey());
+//                    moduleMips = targetDevice.getModuleMipsByModuleName(pair.getKey());
+                    moduleMips = targetDevice.getModuleFixedMipsByModuleName(pair.getKey());
                     TupleScheduler tupleScheduler = (TupleScheduler) module.getCloudletScheduler();
                     List<ResCloudlet> resCloudletList = tupleScheduler.getCloudletExecList();
 
@@ -290,6 +294,7 @@ public class GA {
                         Tuple tuple = (Tuple) resCloudlet.getCloudlet();
                         tupleCpuLength += tuple.getCloudletLength();
                     }
+                    break;
                 }
             }
             waitingTime += (tupleCpuLength / moduleMips);
