@@ -36,6 +36,7 @@ import org.fog.utils.TimeKeeper;
 import org.hu.Enums;
 import org.hu.algorithm.GA.GA;
 import org.hu.algorithm.RandomAllocationPolicy;
+import org.hu.experiment.EnvironmentMonitoring;
 import org.hu.experiment.ExprmtTest;
 import org.hu.merge.ModuleMerger;
 
@@ -459,6 +460,7 @@ public class FogDevice extends PowerDatacenter {
 					if (cl != null) {
 						cloudletCompleted = true;
 						Tuple tuple = (Tuple)cl;
+
 						/**
 						 * 修改module完成map
 						 */
@@ -627,7 +629,6 @@ public class FogDevice extends PowerDatacenter {
 	 * @param ev
 	 */
 	protected void processTupleArrival(SimEvent ev){
-
 		Tuple tuple = (Tuple)ev.getData();
 
 		/**
@@ -644,7 +645,7 @@ public class FogDevice extends PowerDatacenter {
 		}
 
 
-		if(getName().equals("cloud")){
+		if(getFogDeviceType()==Enums.CLOUD){
 			updateCloudTraffic();
 		}
 		
@@ -668,7 +669,8 @@ public class FogDevice extends PowerDatacenter {
 		 * Cloud处理
 		 * review！！！
 		 */
-		if (getFogDeviceType() == Enums.CLOUD&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+		if (getFogDeviceType() == Enums.CLOUD&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))
+				&&(!tuple.getDestModuleName().startsWith("cloud"))) {
 			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
 			if (targetDeviceId != getId()) {
 				int proxyId=0;
@@ -686,7 +688,12 @@ public class FogDevice extends PowerDatacenter {
 		/**
 		 * proxy处理
 		 */
-		if (getName().startsWith("d-p")&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+		if (getFogDeviceType()==Enums.PROXY&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
+			//cloud Task send up
+			if (tuple.getDestModuleName().startsWith("cloud")){
+				sendUp(tuple);
+				return;
+			}
 			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
 			if (targetDeviceId != getId()) {
 				int cloudId=0;
@@ -713,26 +720,26 @@ public class FogDevice extends PowerDatacenter {
 		 */
 		if (((getFogDeviceType()==Enums.EDGE_SERVER)||(getFogDeviceType()==Enums.PROXY)||getFogDeviceType()==Enums.CLOUD)
 				&&(!tuple.getTupleType().equals(FogEvents.TUPLE_ACK))) {
-
-			int edgeServerNum = 0;
-			for (FogDevice fogDevice : allFogDevices) {
-				if (fogDevice.getFogDeviceType() == Enums.CLOUD
-						|| fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
-						|| fogDevice.getFogDeviceType() == Enums.PROXY) {
-					edgeServerNum += 1;
-				}
+			if (tuple.getDestModuleName().startsWith("cloud")&&(getFogDeviceType()!=Enums.CLOUD)){
+				sendUp(tuple);
+				return;
 			}
-
 			/**
 			 * 如果该tuple对应的任务尚未进行资源分配
 			 */
-
-
 			if (tuple.getModulesToDeviceIdMap() == null) {
+				int edgeServerNum = 0;
+				for (FogDevice fogDevice : allFogDevices) {
+					if (fogDevice.getFogDeviceType() == Enums.CLOUD
+							|| fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
+							|| fogDevice.getFogDeviceType() == Enums.PROXY) {
+						edgeServerNum += 1;
+					}
+				}
 				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
 
 				Map<String, Integer> modulesToDeviceIdMap;
-				if (ExprmtTest.isMerge==1){
+				if (EnvironmentMonitoring.isMerge==1){
 					ModuleMerger moduleMerger = new ModuleMerger();
 					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups
 							(tuple,getControllerId(),edgeServerNum);
@@ -740,8 +747,8 @@ public class FogDevice extends PowerDatacenter {
 					modulesToDeviceIdMap = randomAllocationPolicy.getRandomAllocationPolicyAfterMerged(tuple.getAppId(), moduleGroups, controllerId);
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 
-				} else if (ExprmtTest.isGa==1) {
-					GA ga = new GA();
+				} else if (EnvironmentMonitoring.isGa==1) {
+					GA ga = GA.getGA();
 
 					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy
 							(getId(), tuple, allFogDevices, controllerId);
@@ -774,59 +781,62 @@ public class FogDevice extends PowerDatacenter {
 //				tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 			}
 			//tuple的处理或转发
-			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
-			if (targetDeviceId != getId()) {
-				//如果目标是云服务器
-				//Cloud
-				FogDevice targetDevice = getFogDeviceById(targetDeviceId);
-				if (getFogDeviceType()==Enums.CLOUD){
-					//Cloud -> Proxy or Edge
-					if (targetDevice.getFogDeviceType() == Enums.PROXY
-							|| targetDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
-						List<Integer> childrenIdList = getChildrenIds();
-						String areaId = targetDevice.getName().substring(2, 3);
-						int targetChildId = 0;
-						for (Integer childId : childrenIdList) {
-							FogDevice child = getFogDeviceById(childId);
-							if (child.getName().substring(2, 3).equals(areaId)) {
-								targetChildId = child.getId();
+			if (!tuple.getDestModuleName().startsWith("cloud") || getFogDeviceType() != Enums.CLOUD) {
+				int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+				if (targetDeviceId != getId()) {
+					//如果目标是云服务器
+					//Cloud
+					FogDevice targetDevice = getFogDeviceById(targetDeviceId);
+					if (getFogDeviceType()==Enums.CLOUD){
+						//Cloud -> Proxy or Edge
+						if (targetDevice.getFogDeviceType() == Enums.PROXY
+								|| targetDevice.getFogDeviceType() == Enums.EDGE_SERVER) {
+							List<Integer> childrenIdList = getChildrenIds();
+							String areaId = targetDevice.getName().substring(2, 3);
+							int targetChildId = 0;
+							for (Integer childId : childrenIdList) {
+								FogDevice child = getFogDeviceById(childId);
+								if (child.getName().substring(2, 3).equals(areaId)) {
+									targetChildId = child.getId();
+								}
 							}
+							sendDown(tuple, targetDeviceId);
+							NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+							return;
 						}
-						sendDown(tuple, targetDeviceId);
-						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-						return;
 					}
-				}
 
-				//Proxy
-				if (getFogDeviceType() == Enums.PROXY) {
-					//proxy -> cloud
-					if (targetDevice.getFogDeviceType() == Enums.CLOUD) {
-						sendUp(tuple);
-						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-						return;
-					} else {
-						//proxy -> edge
-						sendDown(tuple, targetDeviceId);
-						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-						return;
+					//Proxy
+					if (getFogDeviceType() == Enums.PROXY) {
+						//proxy -> cloud
+						if (targetDevice.getFogDeviceType() == Enums.CLOUD) {
+							sendUp(tuple);
+							NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+							return;
+						} else {
+							//proxy -> edge
+							sendDown(tuple, targetDeviceId);
+							NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+							return;
+						}
 					}
-				}
 
-				//Edge
-				if (getFogDeviceType() == Enums.EDGE_SERVER) {
-					if (targetDevice.getFogDeviceType() == Enums.CLOUD
-							|| targetDevice.getFogDeviceType() == Enums.PROXY) {
-						sendUp(tuple);
-						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-						return;
-					} else {
-						sendPeer(tuple, targetDeviceId);
-						NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
-						return;
+					//Edge
+					if (getFogDeviceType() == Enums.EDGE_SERVER) {
+						if (targetDevice.getFogDeviceType() == Enums.CLOUD
+								|| targetDevice.getFogDeviceType() == Enums.PROXY) {
+							sendUp(tuple);
+							NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+							return;
+						} else {
+							sendPeer(tuple, targetDeviceId);
+							NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+							return;
+						}
 					}
 				}
 			}
+
 		}
 
 

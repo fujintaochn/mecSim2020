@@ -50,7 +50,21 @@ public class Application {
 	public static Application createApplication(String appId, int userId){
 		return new Application(appId, userId);
 	}
-	
+
+	/**
+	 * Adds an application module with Name,ram,mips
+	 */
+	public void addAppModule(String moduleName, int ram, int mips) {
+		long size = 10000;
+		long bw = 1000;
+		String vmm = "Xen";
+
+		AppModule module = new AppModule(FogUtils.generateEntityId(), moduleName, appId, userId,
+				mips, ram, bw, size, vmm, new TupleScheduler(mips, 1), new HashMap<Pair<String, String>, SelectivityModel>());
+
+		getModules().add(module);
+	}
+
 	/**
 	 * Adds an application module to the application.
 	 * @param moduleName
@@ -61,7 +75,7 @@ public class Application {
 		long size = 10000;
 		long bw = 1000;
 		String vmm = "Xen";
-		
+
 		AppModule module = new AppModule(FogUtils.generateEntityId(), moduleName, appId, userId, 
 				mips, ram, bw, size, vmm, new TupleScheduler(mips, 1), new HashMap<Pair<String, String>, SelectivityModel>());
 		

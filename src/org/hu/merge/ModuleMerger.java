@@ -24,7 +24,10 @@ public class ModuleMerger {
         int toProcessModuleNum = 0;
         List<String> toProcessModuleList = new ArrayList<>();
         for (String moduleName : tuple.getModuleCompletedMap().keySet()) {
-            if (tuple.getModuleCompletedMap().get(moduleName)!=null) {
+            if (moduleName.startsWith("cloud")){
+                continue;
+            }
+            if (tuple.getModuleCompletedMap().get(moduleName)==0) {
                 toProcessModuleNum += 1;
                 toProcessModuleList.add(moduleName);
             }
@@ -91,8 +94,8 @@ public class ModuleMerger {
             }
         }
 
-        //临时测试使用
-        serversNum = 9;
+        //临时测试使用SERVERNUM
+        serversNum = 20;
         while (toProcessModuleList.size() > serversNum) {
             //找到通信量最大的边的原宿
             Pair<Integer, Integer> srcAndDest = getMaxNwSrcAndDest(nwMatrix);

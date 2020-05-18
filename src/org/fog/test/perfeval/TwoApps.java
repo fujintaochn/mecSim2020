@@ -158,7 +158,6 @@ public class TwoApps {
 		for(int i=0;i<numOfDepts;i++){
 			addGw(i+"", proxy.getId()); // adding a fog device for every Gateway in physical topology. The parent of each gateway is the Proxy Server
 		}
-		
 	}
 
 	private static FogDevice addGw(String id, int parentId){

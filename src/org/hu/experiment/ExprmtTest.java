@@ -46,11 +46,12 @@ public class ExprmtTest {
     public static List<Application> allApplication = new ArrayList<>();
     public static int isMerge = 0;
     public static int isGa = 1;
+    public static int isMergeGA = 0;
 
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
-    static int numOfAreas = 5;
-    static int numOfCamerasPerArea = 5;
+    static int numOfAreas = 10;
+    static int numOfCamerasPerArea = 10;
 
 
     private static boolean CLOUD = false;
@@ -89,6 +90,7 @@ public class ExprmtTest {
             }
 //			moduleMapping.addModuleToDevice("user_interface", "cloud"); // fixing instances of User Interface module in the Cloud
 
+
             moduleMapping.addModuleToDevice("A", "cloud");
             moduleMapping.addModuleToDevice("B", "cloud");
             moduleMapping.addModuleToDevice("C", "cloud");
@@ -96,41 +98,14 @@ public class ExprmtTest {
             moduleMapping.addModuleToDevice("E", "cloud");
             moduleMapping.addModuleToDevice("F", "cloud");
 
-
-            moduleMapping.addModuleToDevice("A", "d-0");
-            moduleMapping.addModuleToDevice("B", "d-0");
-            moduleMapping.addModuleToDevice("C", "d-0");
-            moduleMapping.addModuleToDevice("D", "d-0");
-            moduleMapping.addModuleToDevice("E", "d-0");
-            moduleMapping.addModuleToDevice("F", "d-0");
-
-            moduleMapping.addModuleToDevice("A", "d-1");
-            moduleMapping.addModuleToDevice("B", "d-1");
-            moduleMapping.addModuleToDevice("C", "d-1");
-            moduleMapping.addModuleToDevice("D", "d-1");
-            moduleMapping.addModuleToDevice("E", "d-1");
-            moduleMapping.addModuleToDevice("F", "d-1");
-
-            moduleMapping.addModuleToDevice("A", "d-2");
-            moduleMapping.addModuleToDevice("B", "d-2");
-            moduleMapping.addModuleToDevice("C", "d-2");
-            moduleMapping.addModuleToDevice("D", "d-2");
-            moduleMapping.addModuleToDevice("E", "d-2");
-            moduleMapping.addModuleToDevice("F", "d-2");
-
-            moduleMapping.addModuleToDevice("A", "d-3");
-            moduleMapping.addModuleToDevice("B", "d-3");
-            moduleMapping.addModuleToDevice("C", "d-3");
-            moduleMapping.addModuleToDevice("D", "d-3");
-            moduleMapping.addModuleToDevice("E", "d-3");
-            moduleMapping.addModuleToDevice("F", "d-3");
-
-            moduleMapping.addModuleToDevice("A", "d-4");
-            moduleMapping.addModuleToDevice("B", "d-4");
-            moduleMapping.addModuleToDevice("C", "d-4");
-            moduleMapping.addModuleToDevice("D", "d-4");
-            moduleMapping.addModuleToDevice("E", "d-4");
-            moduleMapping.addModuleToDevice("F", "d-4");
+            for (int i = 0; i < numOfAreas; i++) {
+                moduleMapping.addModuleToDevice("A", "d-"+i);
+                moduleMapping.addModuleToDevice("B", "d-"+i);
+                moduleMapping.addModuleToDevice("C", "d-"+i);
+                moduleMapping.addModuleToDevice("D", "d-"+i);
+                moduleMapping.addModuleToDevice("E", "d-"+i);
+                moduleMapping.addModuleToDevice("F", "d-"+i);
+            }
 
             moduleMapping.addModuleToDevice("A", "d-proxy");
             moduleMapping.addModuleToDevice("B", "d-proxy");
@@ -138,7 +113,6 @@ public class ExprmtTest {
             moduleMapping.addModuleToDevice("D", "d-proxy");
             moduleMapping.addModuleToDevice("E", "d-proxy");
             moduleMapping.addModuleToDevice("F", "d-proxy");
-//			moduleMapping.addModuleToDevice("object_tracker", "d-proxy");
 
             controller = new Controller("master-controller", fogDevices, sensors,
                     actuators);
@@ -199,7 +173,7 @@ public class ExprmtTest {
         FogDevice camera = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         camera.setParentId(parentId);
         Sensor sensor = new Sensor("s-"+id, "CAMERA", userId, appId
-                , new DeterministicDistribution(700)); // inter-transmission time of camera (sensor) follows a deterministic distribution
+                , new DeterministicDistribution(200)); // inter-transmission time of camera (sensor) follows a deterministic distribution
         sensors.add(sensor);
         Actuator ptz = new Actuator("ptz-"+id, userId, appId, "PTZ_CONTROL");
         actuators.add(ptz);

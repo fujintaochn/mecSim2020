@@ -18,16 +18,30 @@ import java.util.*;
 
 public class GA {
 
-    private int populationSize = 100;
-    private int iterations = 50;
+    private int populationSize = 50;
+    private int iterations = 10;
     private double eliteRate = 0.18;
     private double survivalRate = 0.5;
-    private double crossoverRate = 0.35;
-    private double mutationBitRate = 0.17;
+    private double crossoverRate = 0.4;
+    private double mutationBitRate = 0.2;
     private double mutationRate = 0.1;
 
     private List<FogDevice> fogDevicesList;
 
+    private volatile static GA INSTANCE;
+    public GA() {
+    }
+
+    public static GA getGA() {
+        if (INSTANCE == null) {
+            synchronized (GA.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new GA();
+                }
+            }
+        }
+        return INSTANCE;
+    }
 
     public Map<String, Integer> getGAResourceAllocationPolicy(int currentDeviceId, Tuple tuple, List<FogDevice> deviceList, int controllerId) {
         Map<String, Integer> resourceAllocationPolicy = new HashMap<>();
@@ -48,7 +62,9 @@ public class GA {
         List<AppModule> moduleList = application.getModules();
         List<String> moduleNameList = new ArrayList<>();
         for (AppModule module : moduleList) {
-            if (tuple.getModuleCompletedMap().get(module.getName()) == 0) {
+            //ignore cloud task
+            if (tuple.getModuleCompletedMap().get(module.getName()) == 0
+                    &&(!module.getName().startsWith("cloudTask"))) {
                 moduleNameList.add(module.getName());
             }
         }
@@ -81,6 +97,7 @@ public class GA {
             for (Individual individual : population) {
                 individual.setFitness(getFitness(currentDeviceId, individual, application));
             }
+//            setFitnessToPopulation(currentDeviceId, population, application);
             Collections.sort(population);
             //死亡群体不进入下一代
             int survivalNum = (int) (survivalRate * populationSize);
@@ -141,6 +158,7 @@ public class GA {
 
         System.out.println(resourceAllocationPolicy);
         System.out.println(getFitness(currentDeviceId, topIndividual, application));
+
         return resourceAllocationPolicy;
 
     }
@@ -159,6 +177,7 @@ public class GA {
             chromosome.add(pair);
         }
         individual.setChromosome(chromosome);
+
         return individual;
     }
 
@@ -217,13 +236,15 @@ public class GA {
     //当前适应度函数为每个基因位上的module 到目标device后，等待任务数量
     private double getFitness(int currentDeviceId, Individual individual,Application application) {
         List<Pair<String, Integer>> chromosome = individual.getChromosome();
-        //TODO 适应度函数改为时间 cpulength/mips + bwlength/bw + waitingTime
 
         double executeTime = getExecuteTime(chromosome, application);
         double transTime = getTransTime(currentDeviceId, chromosome, application);
         double waitingTime = getQueueWaitingTime(chromosome, application);
         double fitness = executeTime + transTime + waitingTime;
 
+//        if (waitingTime > 10) {
+//            System.out.println("");
+//        }
 //        double waitingTupleNum = 0;
 //        for (Pair<String, Integer> genBit : chromosome) {
 //            FogDevice targetDevice = (FogDevice) CloudSim.getEntity(genBit.getValue());
@@ -420,5 +441,44 @@ public class GA {
             return false;
         }
     }
+
+    private void setFitnessToPopulation(int currentDeviceId,List<Individual> population,Application application) {
+        int size = population.size();
+        for (int i = 0; i < populationSize/4; i++) {
+            GetFitnessRunnable getFitnessRunnable1 = new GetFitnessRunnable(currentDeviceId, population.get(i * 4), application);
+            GetFitnessRunnable getFitnessRunnable2 = new GetFitnessRunnable(currentDeviceId, population.get(i * 4+1), application);
+            GetFitnessRunnable getFitnessRunnable3 = new GetFitnessRunnable(currentDeviceId, population.get(i * 4+2), application);
+            GetFitnessRunnable getFitnessRunnable4 = new GetFitnessRunnable(currentDeviceId, population.get(i * 4+3), application);
+            Thread thread1 = new Thread(getFitnessRunnable1);
+            Thread thread2 = new Thread(getFitnessRunnable2);
+            Thread thread3 = new Thread(getFitnessRunnable3);
+            Thread thread4 = new Thread(getFitnessRunnable4);
+            thread1.run();
+            thread2.run();
+            thread3.run();
+            thread4.run();
+        }
+
+    }
+
+    private class GetFitnessRunnable implements Runnable {
+        private Application application;
+        private Individual individual;
+        private int currentDeviceId;
+
+        private GetFitnessRunnable(int currentDeviceId, Individual individual, Application application) {
+            this.currentDeviceId = currentDeviceId;
+            this.individual = individual;
+            this.application = application;
+        }
+
+        @Override
+        public void run() {
+            this.individual.setFitness(getFitness(this.currentDeviceId,this.individual,this.application));
+        }
+    }
+
+
+
 
 }
