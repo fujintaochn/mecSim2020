@@ -34,7 +34,7 @@ import org.fog.utils.FogLinearPowerModel;
 import org.fog.utils.FogUtils;
 import org.fog.utils.TimeKeeper;
 import org.fog.utils.distribution.DeterministicDistribution;
-import org.hu.Enums;
+import org.hu.utils.Enums;
 
 /**
  * Simulation setup for case study 2 - Intelligent Surveillance

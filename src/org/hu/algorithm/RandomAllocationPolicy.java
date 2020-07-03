@@ -5,8 +5,7 @@ import org.fog.application.AppModule;
 import org.fog.application.Application;
 import org.fog.entities.FogDevice;
 import org.fog.placement.Controller;
-import org.fog.test.perfeval.DCNSFog;
-import org.hu.Enums;
+import org.hu.utils.Enums;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -16,7 +16,6 @@ import org.fog.application.selectivity.FractionalSelectivity;
 import org.fog.entities.*;
 import org.fog.placement.Controller;
 import org.fog.placement.ModuleMapping;
-import org.fog.placement.ModulePlacementEdgewards;
 import org.fog.placement.ModulePlacementMapping;
 import org.fog.policy.AppModuleAllocationPolicy;
 import org.fog.scheduler.StreamOperatorScheduler;
@@ -24,12 +23,9 @@ import org.fog.utils.FogLinearPowerModel;
 import org.fog.utils.FogUtils;
 import org.fog.utils.TimeKeeper;
 import org.fog.utils.distribution.DeterministicDistribution;
-import org.hu.Enums;
+import org.hu.utils.Enums;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class EnvironmentMonitoring {
     public static List<FogDevice> fogDevices = new ArrayList<FogDevice>();
@@ -43,17 +39,32 @@ public class EnvironmentMonitoring {
     private static double VEHICLE_EMIT_TIME = 1000;
 
     public static int isMerge = 0;
-    public static int isGa = 1;
+    public static int isGa = 0;
+    public static int isMergeGa = 1;
+    public static int mergedNum = 5;
+    public static int isAllCloud = 0;
+    public static int isQueueOpt = 1;
 
     static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
-    static int numOfAreas = 5;
-    static int numOfStationsPerArea = 10;
+    static int numOfAreas = 10;
+    static int numOfStationsPerArea = 5;
     static int numOfVehiclesPerArea = 1;
+
+    /**
+     * 记录tuple处理位置
+     *
+     * @param args
+     */
+    public static Map<Integer, Integer> tupleProcessPositionRecord = new HashMap<>();
 
     public static void main(String[] args) {
 
         Log.printLine("Starting Experiment1...");
+        //initial processPositionRecord
+        tupleProcessPositionRecord.put(1, 0);
+        tupleProcessPositionRecord.put(2, 0);
+        tupleProcessPositionRecord.put(4, 0);
 
         try {
             Log.disable();
@@ -168,6 +179,8 @@ public class EnvironmentMonitoring {
 
             CloudSim.stopSimulation();
 
+
+
             Log.printLine("Environment Monitoring Task Simulation finished!");
         } catch (Exception e) {
             e.printStackTrace();
@@ -212,9 +225,9 @@ public class EnvironmentMonitoring {
      * 创建所有FogDevice
      */
     private static void createFogDevices() {
-        FogDevice cloud = createFogDevice("cloud", 45*1000, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25); // creates the fog device Cloud at the apex of the hierarchy with level=0
+        FogDevice cloud = createFogDevice("cloud", 4*1000, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25); // creates the fog device Cloud at the apex of the hierarchy with level=0
         cloud.setParentId(-1);
-        FogDevice proxy = createFogDevice("proxy-server", 10*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333); // creates the fog device Proxy Server (level=1)
+        FogDevice proxy = createFogDevice("proxy-server", 2*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333); // creates the fog device Proxy Server (level=1)
         proxy.setParentId(cloud.getId()); // setting Cloud as parent of the Proxy Server
         proxy.setUplinkLatency(100); // latency of connection from Proxy Server to the Cloud is 100 ms
 
@@ -230,8 +243,8 @@ public class EnvironmentMonitoring {
     }
 
 
-    public static FogDevice createArea(String id, int parentId) {
-        FogDevice areaEdgeServer = createFogDevice("d-"+id, 2*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
+    public static FogDevice createArea(String id, int parentId) {//mips 2*1000
+        FogDevice areaEdgeServer = createFogDevice("d-"+id, 2000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
         areaEdgeServer.setFogDeviceType(Enums.EDGE_SERVER);
         fogDevices.add(areaEdgeServer);
         areaServerList.add(areaEdgeServer);
@@ -365,8 +378,8 @@ public class EnvironmentMonitoring {
         /*
          * Connecting the application modules (vertices) in the application model (directed graph) with edges
          */
-        int CpuFactor = 10;
-        int NwFactor = 5;
+        int CpuFactor = 60;//30
+        int NwFactor = 200;//200
         application.addAppEdge("environmentDataCollection", "forStation", 500*CpuFactor, 300*NwFactor, "environmentDataCollection", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("forStation", "dataPreprocess", 100*CpuFactor, 300*NwFactor, "1", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("dataPreprocess", "highValuePreprocess", 200*CpuFactor, 200*NwFactor, "2", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
@@ -426,9 +439,9 @@ public class EnvironmentMonitoring {
          * Defining application loops (maybe incomplete loops) to monitor the latency of.
          * Here, we add two loops for monitoring : Motion Detector -> Object Detector -> Object Tracker and Object Tracker -> PTZ Control
          */
-        final AppLoop loop1 = new AppLoop(new ArrayList<String>(){{add("dataPreprocess");add("hotAreaAnalyze");add("visualizationPre");add("cloudTask");}});
+        final AppLoop loop1 = new AppLoop(new ArrayList<String>(){{add("dataPreprocess");add("hotAreaAnalyze");add("visualizationPre");}});
         final AppLoop loop2 = new AppLoop(new ArrayList<String>(){{add("dataPreprocess");add("pmAnalyze");add("pollutantAnalyze");add("visualizationPre");}});
-        final AppLoop loop3 = new AppLoop(new ArrayList<String>(){{add("dataPreprocess");add("highValuePreprocess");add("cloudTask");}});
+        final AppLoop loop3 = new AppLoop(new ArrayList<String>(){{add("dataPreprocess");add("highValuePreprocess");}});
         List<AppLoop> loops = new ArrayList<AppLoop>(){{add(loop1);add(loop2);add(loop3);}};
 
         application.setLoops(loops);
@@ -445,8 +458,8 @@ public class EnvironmentMonitoring {
         application.addAppModule("sourcePreprocess", 10);
         application.addAppModule("cloudTaskV", 10);
 
-        int factor = 20;
-        int NwFactor = 7;
+        int factor = 3;
+        int NwFactor = 20;
         application.addAppEdge("environmentDataAndVideo", "forVehicle", 500*factor, 2000*NwFactor, "environmentDataAndVideo", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("forVehicle", "DataPreprocess", 100*factor, 500*NwFactor, "1", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("forVehicle", "videoPreprocess", 600*factor, 2000*NwFactor, "2", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
@@ -467,8 +480,8 @@ public class EnvironmentMonitoring {
         application.addTupleMapping("sourcePreprocess", "4", "6", new FractionalSelectivity(1)); // 1.0 tuples of type MOTION_VIDEO_STREAM are emitted by Motion Detector module per incoming tuple of type CAMERA
         application.addTupleMapping("sourcePreprocess", "5", "6", new FractionalSelectivity(1)); // 1.0 tuples of type MOTION_VIDEO_STREAM are emitted by Motion Detector module per incoming tuple of type CAMERA
 
-        final AppLoop loop1 = new AppLoop(new ArrayList<String>(){{add("forVehicle");add("DataPreprocess");add("pollutantMatching");add("sourcePreprocess");add("cloudTaskV");}});
-        final AppLoop loop2 = new AppLoop(new ArrayList<String>(){{add("forVehicle");add("videoPreprocess");add("sourcePreprocess");add("cloudTaskV");}});
+        final AppLoop loop1 = new AppLoop(new ArrayList<String>(){{add("forVehicle");add("DataPreprocess");add("pollutantMatching");add("sourcePreprocess");}});
+        final AppLoop loop2 = new AppLoop(new ArrayList<String>(){{add("forVehicle");add("videoPreprocess");add("sourcePreprocess");}});
         List<AppLoop> loops = new ArrayList<AppLoop>(){{add(loop1);add(loop2);}};
 
         application.setLoops(loops);

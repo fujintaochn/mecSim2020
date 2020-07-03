@@ -1,10 +1,8 @@
 package org.fog.placement;
 
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
@@ -20,6 +18,8 @@ import org.fog.utils.FogEvents;
 import org.fog.utils.FogUtils;
 import org.fog.utils.NetworkUsageMonitor;
 import org.fog.utils.TimeKeeper;
+import org.hu.utils.TaskCompleteEnum;
+import org.hu.utils.TaskCompleteMessage;
 
 public class Controller extends SimEntity{
 	
@@ -33,12 +33,18 @@ public class Controller extends SimEntity{
 	private Map<String, Integer> appLaunchDelays;
 
 	private Map<String, ModulePlacement> appModulePlacementPolicy;
+
+	private Map<String,Map<String,Boolean>> taskCompleteMap;
+
+	private Map<String,Map<String,Boolean>> initialApplicationToModulesMap;
 	
 	public Controller(String name, List<FogDevice> fogDevices, List<Sensor> sensors, List<Actuator> actuators) {
 		super(name);
 		this.applications = new HashMap<String, Application>();
 		setAppLaunchDelays(new HashMap<String, Integer>());
 		setAppModulePlacementPolicy(new HashMap<String, ModulePlacement>());
+		taskCompleteMap = new HashMap<>();
+		initialApplicationToModulesMap = new HashMap<>();
 		for(FogDevice fogDevice : fogDevices){
 			fogDevice.setControllerId(getId());
 		}
@@ -105,8 +111,19 @@ public class Controller extends SimEntity{
 			printNetworkUsageDetails();
 			System.exit(0);
 			break;
+		case TaskCompleteEnum.NEW_TASK:
+			processNewTaskCompleteMap(ev);
+			break;
+		case TaskCompleteEnum.TASK_UPDATE:
+			updateSubTaskMap(ev);
+			break;
 			
 		}
+	}
+
+	private void updateSubTaskMap(SimEvent ev) {
+		TaskCompleteMessage message = (TaskCompleteMessage) ev.getData();
+		taskCompleteMap.get(message.getTaskId()).put(message.getSubTaskName(),true);
 	}
 	
 	private void printNetworkUsageDetails() {
@@ -239,6 +256,40 @@ public class Controller extends SimEntity{
 		}
 	}
 
+	private void processNewTaskCompleteMap(SimEvent ev) {
+		TaskCompleteMessage message = (TaskCompleteMessage) ev.getData();
+		String applicationName = message.getApplicationName();
+		Map<String, Boolean> subTaskCompleteMap = getSubTaskCompleteMap(applicationName);
+		taskCompleteMap.put(message.getTaskId(), subTaskCompleteMap);
+	}
+
+	/**
+	 * get子任务完成初始map的方法
+	 * 如果该application还没有map，则生成；
+	 * @param applicationName
+	 * @return
+	 */
+	private Map<String,Boolean> getSubTaskCompleteMap(String applicationName){
+		Map<String, Boolean> initialTaskCompleteMap = initialApplicationToModulesMap.get(applicationName);
+
+		if (initialTaskCompleteMap == null) {
+			Map<String, Boolean> map = new HashMap<>();
+			Application application = getApplications().get(applicationName);
+			for (AppModule module : application.getModules()) {
+				map.put(module.getName(), false);
+			}
+			Map<String, Boolean> toSaveMap = new HashMap<>();
+			toSaveMap.putAll(map);
+			initialApplicationToModulesMap.put(applicationName, toSaveMap);
+			initialTaskCompleteMap = new HashMap<>();
+			initialTaskCompleteMap.putAll(map);
+		}else{
+			initialTaskCompleteMap = new HashMap<>();
+			initialTaskCompleteMap.putAll(initialApplicationToModulesMap.get(applicationName));
+		}
+		return initialTaskCompleteMap;
+	}
+
 	public List<FogDevice> getFogDevices() {
 		return fogDevices;
 	}
@@ -287,6 +338,33 @@ public class Controller extends SimEntity{
 
 	public void setAppModulePlacementPolicy(Map<String, ModulePlacement> appModulePlacementPolicy) {
 		this.appModulePlacementPolicy = appModulePlacementPolicy;
+	}
+
+	public int getUnfinishedPreModulesNum(String taskId, String moduleName, String appId) {
+		Application application = getApplications().get(appId);
+		List<AppEdge> edgesFromModule = application.getEdgeBySrcModuleName(moduleName);
+		List<String> nextModules = new ArrayList<>();
+		for (AppEdge edge : edgesFromModule) {
+			nextModules.add(edge.getDestination());
+		}
+		List<String> peerModuleList = new ArrayList<>();
+		for (String nextModule : nextModules) {
+			List<AppEdge> list = application.getEdgeByDestModuleName(nextModule);
+			for (AppEdge edge : list) {
+				peerModuleList.add(edge.getSource());
+			}
+		}
+		int unfinishedCount = 0;
+		Map<String, Boolean> map = taskCompleteMap.get(taskId);
+		if(map==null){
+			return 0;
+		}
+		for (String peerModule : peerModuleList) {
+			if(map.get(peerModule)==false){
+				unfinishedCount++;
+			}
+		}
+		return unfinishedCount;
 	}
 
 

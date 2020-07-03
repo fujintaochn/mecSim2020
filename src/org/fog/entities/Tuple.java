@@ -30,6 +30,8 @@ public class Tuple extends Cloudlet {
 	private int sourceDeviceId;
 	private int sourceModuleId;
 
+	private String taskId;
+
 
 
 
@@ -155,6 +157,15 @@ public class Tuple extends Cloudlet {
 	}
 
 	public void setModuleGroups(Map<Integer, List<String>> moduleGroups) {
+
 		this.moduleGroups = moduleGroups;
+	}
+
+	public String getTaskId() {
+		return taskId;
+	}
+
+	public void setTaskId(String taskId) {
+		this.taskId = taskId;
 	}
 }

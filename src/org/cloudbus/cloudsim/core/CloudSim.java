@@ -21,6 +21,8 @@ import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.predicates.Predicate;
 import org.cloudbus.cloudsim.core.predicates.PredicateAny;
 import org.cloudbus.cloudsim.core.predicates.PredicateNone;
+import org.hu.utils.Enums;
+import org.hu.experiment.EnvironmentMonitoring;
 
 /**
  * This class extends the CloudSimCore to enable network simulation in CloudSim. Also, it disables
@@ -216,6 +218,19 @@ public class CloudSim {
 	 */
 	public static void stopSimulation() throws NullPointerException {
 		try {
+			/**
+			 * tupleProcessRecord output
+			 */
+			Map<Integer, Integer> tupleProcessPositionRecord = EnvironmentMonitoring.tupleProcessPositionRecord;
+			for (Integer fogDeviceType : tupleProcessPositionRecord.keySet()) {
+				if (fogDeviceType == Enums.EDGE_SERVER) {
+					System.out.println("EdgeServer 合计处理tuple数量: " + tupleProcessPositionRecord.get(fogDeviceType));
+				} else if (fogDeviceType == Enums.PROXY) {
+					System.out.println("Proxy 合计处理tuple数量: " + tupleProcessPositionRecord.get(fogDeviceType));
+				} else if (fogDeviceType == Enums.CLOUD) {
+					System.out.println("Cloud 合计处理tuple数量: " + tupleProcessPositionRecord.get(fogDeviceType));
+				}
+			}
 			runStop();
 		} catch (IllegalArgumentException e) {
 			throw new NullPointerException("CloudSim.stopCloudSimulation() : "

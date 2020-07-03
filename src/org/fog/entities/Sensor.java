@@ -15,6 +15,9 @@ import org.fog.utils.GeoLocation;
 import org.fog.utils.Logger;
 import org.fog.utils.TimeKeeper;
 import org.fog.utils.distribution.Distribution;
+import org.hu.utils.TaskCompleteEnum;
+import org.hu.utils.TaskCompleteMessage;
+import org.hu.utils.TaskUtils;
 
 public class Sensor extends SimEntity{
 	
@@ -102,8 +105,17 @@ public class Sensor extends SimEntity{
 		int actualTupleId = updateTimings(getSensorName(), tuple.getDestModuleName());
 		tuple.setActualTupleId(actualTupleId);
 		emitTime += 1;
+		String taskId = TaskUtils.generateTaskId();
+		tuple.setTaskId(taskId);
 		send(gatewayDeviceId, getLatency(), FogEvents.TUPLE_ARRIVAL,tuple);
 		System.out.println("sensor 第 "+emitTime+" 次发出任务");
+
+		//在Controller的TaskCompleteMap中新增Task的map
+
+
+		TaskCompleteMessage message = new TaskCompleteMessage(TaskCompleteEnum.NEW_TASK
+				, tuple.getAppId(), taskId);
+		send(getControllerId(), getLatency(), TaskCompleteEnum.NEW_TASK, message);
 	}
 	
 	private int updateTimings(String src, String dest){

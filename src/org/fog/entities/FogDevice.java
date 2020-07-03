@@ -1,11 +1,6 @@
 package org.fog.entities;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 
 import org.apache.commons.math3.util.Pair;
 import org.cloudbus.cloudsim.*;
@@ -25,7 +20,7 @@ import org.fog.application.Application;
 import org.fog.placement.Controller;
 import org.fog.policy.AppModuleAllocationPolicy;
 import org.fog.scheduler.StreamOperatorScheduler;
-import org.fog.test.perfeval.DCNSFog;
+import org.fog.scheduler.TupleScheduler;
 import org.fog.utils.Config;
 import org.fog.utils.FogEvents;
 import org.fog.utils.FogUtils;
@@ -33,12 +28,13 @@ import org.fog.utils.Logger;
 import org.fog.utils.ModuleLaunchConfig;
 import org.fog.utils.NetworkUsageMonitor;
 import org.fog.utils.TimeKeeper;
-import org.hu.Enums;
+import org.hu.utils.Enums;
 import org.hu.algorithm.GA.GA;
 import org.hu.algorithm.RandomAllocationPolicy;
 import org.hu.experiment.EnvironmentMonitoring;
-import org.hu.experiment.ExprmtTest;
 import org.hu.merge.ModuleMerger;
+import org.hu.utils.TaskCompleteEnum;
+import org.hu.utils.TaskCompleteMessage;
 
 public class FogDevice extends PowerDatacenter {
 	/**
@@ -477,15 +473,55 @@ public class FogDevice extends PowerDatacenter {
 							resTuple.setModuleCompletedMap(tuple.getModuleCompletedMap());
 
 
+							resTuple.setTaskId(tuple.getTaskId());
+
 							resTuple.setModuleCopyMap(new HashMap<String, Integer>(tuple.getModuleCopyMap()));
 							resTuple.getModuleCopyMap().put(((AppModule)vm).getName(), vm.getId());
 							updateTimingsOnSending(resTuple);
 							sendToSelf(resTuple);
 						}
 						sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl);
+
+						//向Controller更新SubTask完成信息；
+						TaskCompleteMessage message = new TaskCompleteMessage(TaskCompleteEnum.TASK_UPDATE
+								, application.getAppId(), tuple.getTaskId(), tuple.getDestModuleName());
+						send(getControllerId(), uplinkLatency, TaskCompleteEnum.TASK_UPDATE, message);
+
+
+
+
 					}
 				}
+				/**
+				 * 队列优化
+				 * 主要思想：遍历所有vm的待处理任务队列中每个子任务的后置module的前置module的未完成数量
+				 * 根据未完成数量升序排列待处理任务队列
+				 */
+				//step0 后置modules的前置modules
+				if(EnvironmentMonitoring.isQueueOpt==1){
+					Controller controller = (Controller) CloudSim.getEntity(controllerId);
+					AppModule module = (AppModule) vm;
+					TupleScheduler tupleScheduler = (TupleScheduler) module.getCloudletScheduler();
+					List<ResCloudlet> resCloudletList = tupleScheduler.getCloudletExecList();
+					List<Pair<ResCloudlet, Integer>> resCloudletUnfinishedList = new ArrayList<>();
+					for (ResCloudlet resCloudlet : resCloudletList) {
+						Tuple tuple = (Tuple)resCloudlet.getCloudlet();
+						int unfinishedNum = controller.getUnfinishedPreModulesNum(tuple.getTaskId()
+								, tuple.getDestModuleName(), tuple.getAppId());
+						Pair<ResCloudlet, Integer> pair = new Pair<>(resCloudlet, unfinishedNum);
+						resCloudletUnfinishedList.add(pair);
+					}
+					Collections.sort(resCloudletUnfinishedList, (a, b) -> a.getValue() - b.getValue());
+					for(int j=resCloudletList.size()-1;j>=0;j--){
+						resCloudletList.remove(j);
+					}
+					for(int j=0;j<resCloudletUnfinishedList.size();j++){
+						resCloudletList.add(resCloudletUnfinishedList.get(j).getKey());
+					}
+				}
+
 			}
+
 		}
 		if(cloudletCompleted)
 			updateAllocatedMips(null);
@@ -694,7 +730,10 @@ public class FogDevice extends PowerDatacenter {
 				sendUp(tuple);
 				return;
 			}
-			int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+			Integer targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+			if (targetDeviceId==null){
+				targetDeviceId = getId();
+			}
 			if (targetDeviceId != getId()) {
 				int cloudId=0;
 				for (FogDevice fogDevice : allFogDevices) {
@@ -736,10 +775,10 @@ public class FogDevice extends PowerDatacenter {
 						edgeServerNum += 1;
 					}
 				}
-				RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
 
 				Map<String, Integer> modulesToDeviceIdMap;
 				if (EnvironmentMonitoring.isMerge==1){
+					RandomAllocationPolicy randomAllocationPolicy = new RandomAllocationPolicy();
 					ModuleMerger moduleMerger = new ModuleMerger();
 					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups
 							(tuple,getControllerId(),edgeServerNum);
@@ -752,6 +791,41 @@ public class FogDevice extends PowerDatacenter {
 
 					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicy
 							(getId(), tuple, allFogDevices, controllerId);
+					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+
+				} else if (EnvironmentMonitoring.isMergeGa == 1) {
+					ModuleMerger moduleMerger = new ModuleMerger();
+					Map<Integer, List<String>> moduleGroups = moduleMerger.getMergedModuleGroups
+							(tuple,getControllerId(),edgeServerNum);
+					tuple.setModuleGroups(moduleGroups);
+
+					GA ga = GA.getGA();
+					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicyWithModuleGroups
+							(getId(), tuple, allFogDevices, controllerId,moduleGroups);
+					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+
+				} else if (EnvironmentMonitoring.isAllCloud == 1) {
+					Controller controller = (Controller) CloudSim.getEntity(controllerId);
+					Application application = controller.getApplications().get(tuple.getAppId());
+					List<AppModule> moduleList = application.getModules();
+					List<String> moduleNameList = new ArrayList<>();
+					for (AppModule module : moduleList) {
+						//ignore cloud task
+						if (tuple.getModuleCompletedMap().get(module.getName()) == 0
+								&&(!module.getName().startsWith("cloudTask"))) {
+							moduleNameList.add(module.getName());
+						}
+					}
+					int cloudId = 0;
+					for (FogDevice device : allFogDevices) {
+						if (device.getFogDeviceType() == Enums.CLOUD) {
+							cloudId = device.getId();
+						}
+					}
+					modulesToDeviceIdMap = new HashMap<>();
+					for (String moduleName : moduleNameList) {
+						modulesToDeviceIdMap.put(moduleName, cloudId);
+					}
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 
 				}
@@ -782,7 +856,10 @@ public class FogDevice extends PowerDatacenter {
 			}
 			//tuple的处理或转发
 			if (!tuple.getDestModuleName().startsWith("cloud") || getFogDeviceType() != Enums.CLOUD) {
-				int targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+				Integer targetDeviceId = tuple.getModulesToDeviceIdMap().get(tuple.getDestModuleName());
+				if(targetDeviceId==null){
+					targetDeviceId = getId();
+				}
 				if (targetDeviceId != getId()) {
 					//如果目标是云服务器
 					//Cloud
@@ -837,6 +914,11 @@ public class FogDevice extends PowerDatacenter {
 				}
 			}
 
+		}
+
+		if (!tuple.getTupleType().equals(FogEvents.TUPLE_ACK)&&(fogDeviceType == Enums.EDGE_SERVER || fogDeviceType == Enums.PROXY || fogDeviceType == Enums.CLOUD)) {
+			EnvironmentMonitoring.tupleProcessPositionRecord
+					.put(fogDeviceType, EnvironmentMonitoring.tupleProcessPositionRecord.get(fogDeviceType) + 1);
 		}
 
 

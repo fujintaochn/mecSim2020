@@ -11,7 +11,7 @@ import org.fog.entities.FogDevice;
 import org.fog.entities.Tuple;
 import org.fog.placement.Controller;
 import org.fog.scheduler.TupleScheduler;
-import org.hu.Enums;
+import org.hu.utils.Enums;
 import org.hu.algorithm.Utils;
 
 import java.util.*;
@@ -19,11 +19,11 @@ import java.util.*;
 public class GA {
 
     private int populationSize = 50;
-    private int iterations = 10;
-    private double eliteRate = 0.18;
+    private int iterations = 30;
+    private double eliteRate = 0.20;
     private double survivalRate = 0.5;
-    private double crossoverRate = 0.4;
-    private double mutationBitRate = 0.2;
+    private double crossoverRate = 0.25;
+    private double mutationBitRate = 0.125;
     private double mutationRate = 0.1;
 
     private List<FogDevice> fogDevicesList;
@@ -42,6 +42,124 @@ public class GA {
         }
         return INSTANCE;
     }
+
+    public Map<String, Integer> getGAResourceAllocationPolicyWithModuleGroups(int currentDeviceId, Tuple tuple
+            , List<FogDevice> deviceList, int controllerId, Map<Integer, List<String>> moduleGroups) {
+        Map<String, Integer> resourceAllocationPolicy = new HashMap<>();
+        Controller controller = (Controller) CloudSim.getEntity(controllerId);
+        Application application = controller.getApplications().get(tuple.getAppId());
+        fogDevicesList = deviceList;
+
+        List<AppModule> moduleList = application.getModules();
+        List<String> moduleNameList = new ArrayList<>();
+        for (AppModule module : moduleList) {
+            //ignore cloud task
+            if (tuple.getModuleCompletedMap().get(module.getName()) == 0
+                    &&(!module.getName().startsWith("cloudTask"))) {
+                moduleNameList.add(module.getName());
+            }
+        }
+        List<FogDevice> fogResourceList = new ArrayList<>();
+        List<Integer> fogResourceIdList = new ArrayList<>();
+        for (FogDevice fogDevice : deviceList) {
+            if (fogDevice.getFogDeviceType() == Enums.CLOUD
+                    || fogDevice.getFogDeviceType() == Enums.EDGE_SERVER
+                    || fogDevice.getFogDeviceType() == Enums.PROXY) {
+                fogResourceList.add(fogDevice);
+                fogResourceIdList.add(fogDevice.getId());
+            }
+        }
+
+        //原始种群
+        List<Individual> population = new LinkedList<>();
+        for (int i = 0; i < populationSize; i++) {
+            Individual individual = getRandomIndividualWithModuleGroupMap(moduleNameList, fogResourceIdList, moduleGroups);
+            population.add(individual);
+        }
+
+        /**
+         * 开始迭代
+         */
+        for (int i = 0; i < iterations; i++) {
+            /**
+             * 计算每一个体的适应度值
+             */
+            for (Individual individual : population) {
+                individual.setFitness(getFitness(currentDeviceId, individual, application));
+            }
+//            setFitnessToPopulation(currentDeviceId, population, application);
+            Collections.sort(population);
+            //死亡群体不进入下一代
+            int survivalNum = (int) (survivalRate * populationSize);
+            List<Individual> survivors = population.subList(0, survivalNum);
+            List<Individual> newPopulation = new LinkedList<>();
+            /**
+             * 精英保持不变
+             * 交配产生新个体
+             * 淘汰死亡群体
+             */
+//            //精英保持不变放入新种群
+            int indexElite = (int) (population.size() * eliteRate);
+//            newPopulation.addAll(population.subList(0, indexElite));
+            //交配
+            int indexCrossover = survivors.size();
+            int j = 0;
+            List<Individual> offsprings = new LinkedList<>();
+            while (j + 1 < indexCrossover) {
+                Individual father = survivors.get(j);
+                Individual mother = survivors.get(j + 1);
+                List<Individual> offspring = getOffspringWithModuleGroup(father, mother, moduleGroups);
+                for (Individual individual : offspring) {
+                    offsprings.add(individual);
+                }
+                j += 2;
+            }
+            /**
+             * 变异 暂时考虑只变异一组module 因为聚类后moduleGroup数量不大
+             */
+            for (int p = indexElite; p < survivors.size(); p++) {
+                if (mutation()) {
+                    Individual individual = survivors.get(p);
+//                newPopulation.add(individual);
+                    List<Pair<String, Integer>> chromosome = individual.getChromosome();
+                    Random random = new Random();
+                    int mutationGroupId = random.nextInt(moduleGroups.size());
+                    List<String> toMutateModules = new ArrayList<>();
+                    toMutateModules.addAll(moduleGroups.get(mutationGroupId));
+                    int newTargetDeviceId = Utils.getRandomDeviceId(fogResourceList);
+                    List<Pair<String, Integer>> mutatedChromosome = new ArrayList<>();
+                    for (Pair<String, Integer> pair : chromosome) {
+                        if (toMutateModules.contains(pair.getKey())) {
+                            mutatedChromosome.add(new Pair<>(pair.getKey(), newTargetDeviceId));
+                        } else {
+                            mutatedChromosome.add(pair);
+                        }
+                    }
+                    Individual mutatedIndividual = new Individual();
+                    mutatedIndividual.setChromosome(mutatedChromosome);
+                    survivors.add(mutatedIndividual);
+                }
+
+            }
+            newPopulation.addAll(survivors);
+            newPopulation.addAll(offsprings);
+
+            population = newPopulation;
+
+
+        }
+        Collections.sort(population);
+        Individual topIndividual = population.get(0);
+        for (Pair<String, Integer> pair : topIndividual.getChromosome()) {
+            resourceAllocationPolicy.put(pair.getKey(), pair.getValue());
+        }
+
+        System.out.println(resourceAllocationPolicy);
+        System.out.println(getFitness(currentDeviceId, topIndividual, application));
+
+        return resourceAllocationPolicy;
+    }
+
 
     public Map<String, Integer> getGAResourceAllocationPolicy(int currentDeviceId, Tuple tuple, List<FogDevice> deviceList, int controllerId) {
         Map<String, Integer> resourceAllocationPolicy = new HashMap<>();
@@ -140,6 +258,7 @@ public class GA {
                         Pair<String, Integer> pair = new Pair<>(oldPair.getKey(), randomDeviceId);
                         chromosome.set(index, pair);
                     }
+
                 }
 
             }
@@ -181,6 +300,90 @@ public class GA {
         return individual;
     }
 
+    private Individual getRandomIndividualWithModuleGroupMap(List<String> moduleNameList
+            , List<Integer> fogResourceIdList, Map<Integer, List<String>> moduleGroups) {
+        Individual individual = new Individual();
+        List<Pair<String, Integer>> chromosome = new ArrayList<>();
+        for (Integer groupId : moduleGroups.keySet()) {
+            int randomId = Utils.getRandomDeviceIdFromIdList(fogResourceIdList);
+            for (String moduleName : moduleGroups.get(groupId)) {
+                if (!moduleNameList.contains(moduleName)) {
+                    continue;
+                }
+                Pair<String, Integer> pair = new Pair<>(moduleName, randomId);
+                chromosome.add(pair);
+            }
+        }
+        individual.setChromosome(chromosome);
+        return individual;
+    }
+
+    private List<Individual> getOffspringWithModuleGroup(Individual father, Individual mother, Map<Integer
+            , List<String>> moduleGroups) {
+        int crossoverGroupNum = (int) (crossoverRate * moduleGroups.size());
+        List<Pair<String, Integer>> chromosomeF = father.getChromosome();
+        List<Pair<String, Integer>> chromosomeM = mother.getChromosome();
+
+        Individual child1 = new Individual();
+        Individual child2 = new Individual();
+        List<Pair<String, Integer>> chromosomeChild1 = new ArrayList<>();
+        List<Pair<String, Integer>> chromosomeChild2 = new ArrayList<>();
+        /**
+         * 初始化染色体
+         */
+        List<Integer> groupIds = getRandomGroupId(moduleGroups.size(), crossoverGroupNum);
+        List<String> crossoverModules = new ArrayList<>();
+        for (Integer groupId : groupIds) {
+            crossoverModules.addAll(moduleGroups.get(groupId));
+        }
+        //crossover by group
+        for (Pair<String, Integer> pair : chromosomeF) {
+            if (crossoverModules.contains(pair.getKey())) {
+                int targetDeviceIdInMother = 0;
+                for (int i = 0; i < chromosomeM.size(); i++) {
+                    if (chromosomeM.get(i).getKey().equals(pair.getKey())) {
+                        targetDeviceIdInMother = pair.getValue();
+                    }
+                }
+                chromosomeChild1.add(new Pair<String, Integer>(pair.getKey(), targetDeviceIdInMother));
+            } else {
+                chromosomeChild1.add(pair);
+            }
+        }
+        for (Pair<String, Integer> pair : chromosomeM) {
+            if (crossoverModules.contains(pair.getKey())) {
+                int targetDeviceIdInFather = 0;
+                for (int i = 0; i < chromosomeF.size(); i++) {
+                    if (chromosomeF.get(i).getKey().equals(pair.getKey())) {
+                        targetDeviceIdInFather = pair.getValue();
+                    }
+                }
+                chromosomeChild2.add(new Pair<String, Integer>(pair.getKey(), targetDeviceIdInFather));
+            } else {
+                chromosomeChild2.add(pair);
+            }
+        }
+        child1.setChromosome(chromosomeChild1);
+        child2.setChromosome(chromosomeChild2);
+        List<Individual> offspring = new ArrayList<>();
+        offspring.add(child1);
+        offspring.add(child2);
+        return offspring;
+    }
+
+    private List<Integer> getRandomGroupId(int groupSize,int idsNum) {
+        Random random = new Random();
+        List<Integer> randomGroupIds = new ArrayList<>();
+        int i = 0;
+        while (i < idsNum) {
+            int groupId = random.nextInt(groupSize);
+            if (!randomGroupIds.contains(groupId)) {
+                randomGroupIds.add(groupId);
+            }
+            i++;
+        }
+        return randomGroupIds;
+    }
 
     private List<Individual> getOffspring(Individual father, Individual mother) {
         List<Pair<String, Integer>> chromosomeF = father.getChromosome();
@@ -240,7 +443,10 @@ public class GA {
         double executeTime = getExecuteTime(chromosome, application);
         double transTime = getTransTime(currentDeviceId, chromosome, application);
         double waitingTime = getQueueWaitingTime(chromosome, application);
-        double fitness = executeTime + transTime + waitingTime;
+//        double punishment =;
+
+        double fitness = executeTime + transTime + waitingTime*8;
+//        double fitness =  transTime + waitingTime;
 
 //        if (waitingTime > 10) {
 //            System.out.println("");
@@ -265,6 +471,12 @@ public class GA {
     }
 
 
+    private double getPunishmentByGroup(List<Pair<String, Integer>> chromosome
+            , Map<Integer, List<String>> moduleGroups) {
+        //统计不符合module分组的数量
+        int inconformCount = 0;
+        return 0;
+    }
 
     /**
      * 评估Tuple的计算时间开销
@@ -432,7 +644,7 @@ public class GA {
      * @return
      */
     private boolean mutation() {
-        int hitRange = (int) mutationRate * 10000;
+        int hitRange = (int) (mutationRate * 10000);
         Random random = new Random();
         int luckyNum = random.nextInt(10000);
         if (luckyNum < hitRange) {

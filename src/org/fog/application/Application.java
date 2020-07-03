@@ -382,4 +382,23 @@ public class Application {
 		}
 		return null;
 	}
+
+	public List<String> getPeerModulesName(String moduleName){
+		List<String> peerModulesName = new ArrayList<>();
+		List<String> resModulesName = getResModulesName(moduleName);
+		for(String reModuleName:resModulesName){
+			for (AppEdge edge : getEdgeByDestModuleName(reModuleName)) {
+				peerModulesName.add(edge.getSource());
+			}
+		}
+		return peerModulesName;
+	}
+
+	private List<String> getResModulesName(String moduleName){
+		List<String> resModulesName = new ArrayList<>();
+		for (AppEdge edge : getEdgeBySrcModuleName(moduleName)) {
+			resModulesName.add(edge.getDestination());
+		}
+		return resModulesName;
+	}
 }

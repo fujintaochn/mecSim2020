@@ -1,4 +1,4 @@
-package org.hu;
+package org.hu.utils;
 
 public class Enums {
     public static final int EDGE_SERVER = 1;

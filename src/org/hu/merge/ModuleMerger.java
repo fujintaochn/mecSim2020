@@ -7,6 +7,7 @@ import org.fog.application.AppModule;
 import org.fog.application.Application;
 import org.fog.entities.Tuple;
 import org.fog.placement.Controller;
+import org.hu.experiment.EnvironmentMonitoring;
 
 import java.util.*;
 
@@ -95,7 +96,8 @@ public class ModuleMerger {
         }
 
         //临时测试使用SERVERNUM
-        serversNum = 20;
+        serversNum = EnvironmentMonitoring.mergedNum;
+
         while (toProcessModuleList.size() > serversNum) {
             //找到通信量最大的边的原宿
             Pair<Integer, Integer> srcAndDest = getMaxNwSrcAndDest(nwMatrix);
@@ -162,6 +164,9 @@ public class ModuleMerger {
                 if (moduleName.equals(modules[j])) {
                     return i;
                 }
+            }
+            if (moduleName.equals(moduleNameList.get(i))) {
+                return i;
             }
         }
         return -1;

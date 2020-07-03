@@ -7,11 +7,16 @@ public class FogUtils {
 	private static int TUPLE_ID = 1;
 	private static int ENTITY_ID = 1;
 	private static int ACTUAL_TUPLE_ID = 1;
+	private static int TASK_ID = 1;
 	
 	public static int generateTupleId(){
 		return TUPLE_ID++;
 	}
-	
+
+	public static int generateTaskId(){
+		return TASK_ID++;
+	}
+
 	public static String getSensorTypeFromSensorName(String sensorName){
 		return sensorName.substring(sensorName.indexOf('-')+1, sensorName.lastIndexOf('-'));
 	}
