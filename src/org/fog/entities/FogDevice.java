@@ -803,6 +803,13 @@ public class FogDevice extends PowerDatacenter {
 					modulesToDeviceIdMap = ga.getGAResourceAllocationPolicyWithModuleGroups
 							(getId(), tuple, allFogDevices, controllerId,moduleGroups);
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+					/**
+					 * 迭代对比
+					 */
+					Sensor aSensor = EnvironmentMonitoring.sensors.get(0);
+					if (EnvironmentMonitoring.recordIteration == 1 && aSensor.getEmitTime() == EnvironmentMonitoring.recordTaskNo) {
+						ga.getGAResourceAllocationPolicy(getId(), tuple, allFogDevices, controllerId);
+					}
 
 				} else if (EnvironmentMonitoring.isAllCloud == 1) {
 					Controller controller = (Controller) CloudSim.getEntity(controllerId);
@@ -828,7 +835,25 @@ public class FogDevice extends PowerDatacenter {
 					}
 					tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
 
-				}
+                } else if (EnvironmentMonitoring.isNearOffload == 1) {
+                    modulesToDeviceIdMap = new HashMap<>();
+                    int targetId = getId();
+                    Controller controller = (Controller) CloudSim.getEntity(controllerId);
+                    Application application = controller.getApplications().get(tuple.getAppId());
+                    List<AppModule> moduleList = application.getModules();
+                    List<String> moduleNameList = new ArrayList<>();
+                    for (AppModule module : moduleList) {
+                        //ignore cloud task
+                        if (tuple.getModuleCompletedMap().get(module.getName()) == 0
+                                &&(!module.getName().startsWith("cloudTask"))) {
+                            moduleNameList.add(module.getName());
+                        }
+                    }
+                    for (String moduleName : moduleNameList) {
+                        modulesToDeviceIdMap.put(moduleName, targetId);
+                    }
+                    tuple.setModulesToDeviceIdMap(modulesToDeviceIdMap);
+                }
 
 
 				/**

@@ -61,7 +61,9 @@ public class Controller extends SimEntity{
 		}
 		return null;
 	}
-	
+
+
+
 	private void connectWithLatencies(){
 		for(FogDevice fogDevice : getFogDevices()){
 			FogDevice parent = getFogDeviceById(fogDevice.getParentId());

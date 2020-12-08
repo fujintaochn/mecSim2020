@@ -247,4 +247,7 @@ public class Sensor extends SimEntity{
 		this.latency = latency;
 	}
 
+	public long getEmitTime() {
+		return emitTime;
+	}
 }

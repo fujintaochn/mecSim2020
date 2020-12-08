@@ -35,21 +35,28 @@ public class EnvironmentMonitoring {
     static List<FogDevice> vehicles = new ArrayList<FogDevice>();
     static List<FogDevice> areaServerList = new ArrayList<>();
 
-    private static double STATION_EMIT_TIME = 50;
-    private static double VEHICLE_EMIT_TIME = 1000;
+    private static double STATION_EMIT_TIME = 200;
+    private static double VEHICLE_EMIT_TIME = 10000;
 
-    public static int isMerge = 0;
-    public static int isGa = 0;
+    public static int isMerge = 0;//random
+    public static int isGa =0;
     public static int isMergeGa = 1;
-    public static int mergedNum = 5;
-    public static int isAllCloud = 0;
-    public static int isQueueOpt = 1;
+    public static int mergedNum = 6;
+    public static int isAllCloud = 0; //不适用于该场景
+    public static int isQueueOpt = 0;
+    public static int isNearOffload = 0;
 
-    static List<Sensor> sensors = new ArrayList<Sensor>();
+    public static int isUnbalancedStationNum = 0;
+    public static int recordIteration = 1;
+    public static int recordTaskNo = 3;
+
+    public static List<Sensor> sensors = new ArrayList<Sensor>();
     static List<Actuator> actuators = new ArrayList<Actuator>();
-    static int numOfAreas = 10;
-    static int numOfStationsPerArea = 5;
+    static int numOfAreas = 8;
+    static int numOfStationsPerArea =8;//7
     static int numOfVehiclesPerArea = 1;
+
+    private static int[] numsOfStationInAArea = {16, 10, 8, 8, 8, 8, 8, 8, 25, 8};
 
     /**
      * 记录tuple处理位置
@@ -225,7 +232,7 @@ public class EnvironmentMonitoring {
      * 创建所有FogDevice
      */
     private static void createFogDevices() {
-        FogDevice cloud = createFogDevice("cloud", 4*1000, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25); // creates the fog device Cloud at the apex of the hierarchy with level=0
+        FogDevice cloud = createFogDevice("cloud", 44*1000, 40000, 100, 10000, 0, 0.01, 16*103, 16*83.25); // creates the fog device Cloud at the apex of the hierarchy with level=0
         cloud.setParentId(-1);
         FogDevice proxy = createFogDevice("proxy-server", 2*1000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333); // creates the fog device Proxy Server (level=1)
         proxy.setParentId(cloud.getId()); // setting Cloud as parent of the Proxy Server
@@ -244,17 +251,30 @@ public class EnvironmentMonitoring {
 
 
     public static FogDevice createArea(String id, int parentId) {//mips 2*1000
-        FogDevice areaEdgeServer = createFogDevice("d-"+id, 2000, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
+        FogDevice areaEdgeServer = createFogDevice("d-"+id, 2800, 4000, 10000, 10000, 1, 0.0, 107.339, 83.4333);//83.4333
         areaEdgeServer.setFogDeviceType(Enums.EDGE_SERVER);
         fogDevices.add(areaEdgeServer);
         areaServerList.add(areaEdgeServer);
         areaEdgeServer.setParentId(parentId);
         areaEdgeServer.setUplinkLatency(4);
+//        int stationNum = numsOfStationInAArea[Integer.parseInt(id)];
 
-        for (int i = 0; i < numOfStationsPerArea; i++) {
-            String stationId = id + "-" + i;
-            addStation(stationId, areaEdgeServer.getId());
+        if (isUnbalancedStationNum == 1) {
+            int stationNum = numsOfStationInAArea[Integer.parseInt(id)];
+
+            for (int i = 0; i < stationNum; i++) {
+                String stationId = id + "-" + i;
+                addStation(stationId, areaEdgeServer.getId());
+            }
+
+        }else{
+            for (int i = 0; i < numOfStationsPerArea; i++) {
+                String stationId = id + "-" + i;
+                addStation(stationId, areaEdgeServer.getId());
+            }
         }
+
+
         for (int i = 0; i < numOfVehiclesPerArea; i++) {
             String vehicleId = id + "-" + i + "v";
             addVehicle(vehicleId, areaEdgeServer.getId());
@@ -265,7 +285,7 @@ public class EnvironmentMonitoring {
     }
 
     private static FogDevice addStation(String id, int parentId) {
-        FogDevice station = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
+        FogDevice station = createFogDevice("m-"+id, 1000, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         station.setParentId(parentId);
         station.setUplinkLatency(4);
         fogDevices.add(station);
@@ -274,7 +294,7 @@ public class EnvironmentMonitoring {
     }
 
     private static FogDevice addVehicle(String id, int parentId) {
-        FogDevice vehicle = createFogDevice("m-"+id, 500, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
+        FogDevice vehicle = createFogDevice("m-"+id, 1000, 1000, 10000, 10000, 3, 0, 87.53, 82.44);
         vehicle.setParentId(parentId);
         vehicle.setUplinkLatency(4);
         fogDevices.add(vehicle);
@@ -360,44 +380,45 @@ public class EnvironmentMonitoring {
     @SuppressWarnings({"serial" })
     private static Application createStationApplication(String appId, int userId){
         Application application = Application.createApplication(appId, userId);
+        int CpuFactor = 5*100;//6
+        int NwFactor = 50;//100
         /*
          * Adding modules (vertices) to the application model (directed graph)
          */
 //        application.addAppModule("environmentDataCollection", 10); //moveToSensor
-        application.addAppModule("forStation", 10,500);
-        application.addAppModule("dataPreprocess", 10,100);
-        application.addAppModule("pmAnalyze", 10,800);
-        application.addAppModule("no2So2Analyze", 10,1000);
-        application.addAppModule("pollutantAnalyze", 10,1000);
-        application.addAppModule("hotTimeCompute", 10,300);
-        application.addAppModule("highValuePreprocess", 10,200);
-        application.addAppModule("hotAreaAnalyze", 10,200);
-        application.addAppModule("visualizationPre", 10,2000);
-        application.addAppModule("cloudTask", 10,2000);
+        application.addAppModule("forStation", 10,500*CpuFactor);//500
+        application.addAppModule("dataPreprocess", 10,100*CpuFactor);//100
+        application.addAppModule("pmAnalyze", 10,800*CpuFactor);//800
+        application.addAppModule("no2So2Analyze", 10,1000*CpuFactor);//1000
+        application.addAppModule("pollutantAnalyze", 10,1000*CpuFactor);//1000
+        application.addAppModule("hotTimeCompute", 10,300*CpuFactor);//300
+        application.addAppModule("highValuePreprocess", 10,200*CpuFactor);//200
+        application.addAppModule("hotAreaAnalyze", 10,200*CpuFactor);//200
+        application.addAppModule("visualizationPre", 10,1000*CpuFactor);//2000
+        application.addAppModule("cloudTask", 10,1000*CpuFactor);//2000
 
         /*
          * Connecting the application modules (vertices) in the application model (directed graph) with edges
          */
-        int CpuFactor = 60;//30
-        int NwFactor = 200;//200
-        application.addAppEdge("environmentDataCollection", "forStation", 500*CpuFactor, 300*NwFactor, "environmentDataCollection", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
-        application.addAppEdge("forStation", "dataPreprocess", 100*CpuFactor, 300*NwFactor, "1", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
-        application.addAppEdge("dataPreprocess", "highValuePreprocess", 200*CpuFactor, 200*NwFactor, "2", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
-        application.addAppEdge("dataPreprocess", "hotTimeCompute", 200*CpuFactor, 200*NwFactor, "3", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
-        application.addAppEdge("dataPreprocess", "hotAreaAnalyze", 200*CpuFactor, 200*NwFactor, "4", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("dataPreprocess", "pmAnalyze", 800*CpuFactor, 200*NwFactor, "5", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("dataPreprocess", "no2So2Analyze", 1000*CpuFactor, 300*NwFactor, "6", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("highValuePreprocess", "cloudTask", 1000*CpuFactor, 500*NwFactor, "7", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("hotTimeCompute", "cloudTask", 1000*CpuFactor, 500*NwFactor, "8", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("hotAreaAnalyze", "cloudTask", 1000*CpuFactor, 500*NwFactor, "9", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("no2So2Analyze", "pollutantAnalyze", 1000*CpuFactor, 600*NwFactor, "10", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("pmAnalyze", "pollutantAnalyze", 1000*CpuFactor, 600*NwFactor, "11", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("pollutantAnalyze", "visualizationPre", 2000*CpuFactor, 500*NwFactor, "12", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("hotAreaAnalyze", "visualizationPre", 2000*CpuFactor, 500*NwFactor, "13", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("hotTimeCompute", "visualizationPre", 2000*CpuFactor, 500*NwFactor, "14", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("highValuePreprocess", "visualizationPre", 2000*CpuFactor, 500*NwFactor, "15", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("visualizationPre", "cloudTask", 1000*CpuFactor, 1000*NwFactor, "16", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
-        application.addAppEdge("pollutantAnalyze", "cloudTask", 1000*CpuFactor, 1000*NwFactor, "17", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+
+        application.addAppEdge("environmentDataCollection", "forStation", 50*CpuFactor, 300*NwFactor, "environmentDataCollection", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
+        application.addAppEdge("forStation", "dataPreprocess", 10*CpuFactor, 300*NwFactor, "1", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
+        application.addAppEdge("dataPreprocess", "highValuePreprocess", 20*CpuFactor, 200*NwFactor, "2", Tuple.UP, AppEdge.MODULE); // adding edge from Motion Detector to Object Detector module carrying tuples of type MOTION_VIDEO_STREAM
+        application.addAppEdge("dataPreprocess", "hotTimeCompute", 20*CpuFactor, 200*NwFactor, "3", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to User Interface module carrying tuples of type DETECTED_OBJECT
+        application.addAppEdge("dataPreprocess", "hotAreaAnalyze", 20*CpuFactor, 200*NwFactor, "4", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("dataPreprocess", "pmAnalyze", 80*CpuFactor, 200*NwFactor, "5", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("dataPreprocess", "no2So2Analyze", 100*CpuFactor, 300*NwFactor, "6", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("highValuePreprocess", "cloudTask", 100*CpuFactor, 500*NwFactor, "7", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("hotTimeCompute", "cloudTask", 100*CpuFactor, 500*NwFactor, "8", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("hotAreaAnalyze", "cloudTask", 100*CpuFactor, 500*NwFactor, "9", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("no2So2Analyze", "pollutantAnalyze", 100*CpuFactor, 600*NwFactor, "10", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("pmAnalyze", "pollutantAnalyze", 100*CpuFactor, 600*NwFactor, "11", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("pollutantAnalyze", "visualizationPre", 100*CpuFactor, 500*NwFactor, "12", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("hotAreaAnalyze", "visualizationPre", 100*CpuFactor, 500*NwFactor, "13", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("hotTimeCompute", "visualizationPre", 100*CpuFactor, 500*NwFactor, "14", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("highValuePreprocess", "visualizationPre", 100*CpuFactor, 500*NwFactor, "15", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("visualizationPre", "cloudTask", 100*CpuFactor, 1000*NwFactor, "16", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
+        application.addAppEdge("pollutantAnalyze", "cloudTask", 100*CpuFactor, 1000*NwFactor, "17", Tuple.UP, AppEdge.MODULE); // adding edge from Object Detector to Object Tracker module carrying tuples of type OBJECT_LOCATION
 
         /*
          * Defining the input-output relationships (represented by selectivity) of the application modules.
@@ -459,7 +480,7 @@ public class EnvironmentMonitoring {
         application.addAppModule("cloudTaskV", 10);
 
         int factor = 3;
-        int NwFactor = 20;
+        int NwFactor = 2;
         application.addAppEdge("environmentDataAndVideo", "forVehicle", 500*factor, 2000*NwFactor, "environmentDataAndVideo", Tuple.UP, AppEdge.SENSOR); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("forVehicle", "DataPreprocess", 100*factor, 500*NwFactor, "1", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA
         application.addAppEdge("forVehicle", "videoPreprocess", 600*factor, 2000*NwFactor, "2", Tuple.UP, AppEdge.MODULE); // adding edge from CAMERA (sensor) to Motion Detector module carrying tuples of type CAMERA

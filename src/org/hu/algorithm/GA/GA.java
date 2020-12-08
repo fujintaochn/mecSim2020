@@ -8,20 +8,26 @@ import org.fog.application.AppEdge;
 import org.fog.application.AppModule;
 import org.fog.application.Application;
 import org.fog.entities.FogDevice;
+import org.fog.entities.Sensor;
 import org.fog.entities.Tuple;
 import org.fog.placement.Controller;
 import org.fog.scheduler.TupleScheduler;
+import org.hu.experiment.EnvironmentMonitoring;
 import org.hu.utils.Enums;
 import org.hu.algorithm.Utils;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 public class GA {
 
-    private int populationSize = 50;
-    private int iterations = 30;
-    private double eliteRate = 0.20;
-    private double survivalRate = 0.5;
+    private int populationSize = 16;
+    private int iterations = 75;
+    private double eliteRate = 0;
+    private double survivalRate = 0.6;
     private double crossoverRate = 0.25;
     private double mutationBitRate = 0.125;
     private double mutationRate = 0.1;
@@ -77,6 +83,29 @@ public class GA {
             population.add(individual);
         }
 
+        //记录迭代中最优值结果
+        Sensor aSensor = EnvironmentMonitoring.sensors.get(0);
+
+        BufferedWriter bufferWritter = null;
+        if (EnvironmentMonitoring.recordIteration == 1&&aSensor.getEmitTime() == EnvironmentMonitoring.recordTaskNo) {
+
+            try{
+
+                File file =new File("iterationRecordMGA.txt");
+
+                //if file doesnt exists, then create it
+                if(!file.exists()){
+                    file.createNewFile();
+                }
+                //true = append file
+                FileWriter fileWritter = new FileWriter(file.getName(),true);
+                bufferWritter = new BufferedWriter(fileWritter);
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        }
+
+
         /**
          * 开始迭代
          */
@@ -89,6 +118,16 @@ public class GA {
             }
 //            setFitnessToPopulation(currentDeviceId, population, application);
             Collections.sort(population);
+            if (EnvironmentMonitoring.recordIteration == 1&&aSensor.getEmitTime() == EnvironmentMonitoring.recordTaskNo) {
+                try {
+                    bufferWritter.write(population.get(0).getFitness() + "\n");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+
+
             //死亡群体不进入下一代
             int survivalNum = (int) (survivalRate * populationSize);
             List<Individual> survivors = population.subList(0, survivalNum);
@@ -105,6 +144,8 @@ public class GA {
             int indexCrossover = survivors.size();
             int j = 0;
             List<Individual> offsprings = new LinkedList<>();
+
+
             while (j + 1 < indexCrossover) {
                 Individual father = survivors.get(j);
                 Individual mother = survivors.get(j + 1);
@@ -117,9 +158,9 @@ public class GA {
             /**
              * 变异 暂时考虑只变异一组module 因为聚类后moduleGroup数量不大
              */
-            for (int p = indexElite; p < survivors.size(); p++) {
+            for (int p = 0; p < offsprings.size(); p++) {
                 if (mutation()) {
-                    Individual individual = survivors.get(p);
+                    Individual individual = offsprings.get(p);
 //                newPopulation.add(individual);
                     List<Pair<String, Integer>> chromosome = individual.getChromosome();
                     Random random = new Random();
@@ -137,7 +178,7 @@ public class GA {
                     }
                     Individual mutatedIndividual = new Individual();
                     mutatedIndividual.setChromosome(mutatedChromosome);
-                    survivors.add(mutatedIndividual);
+                    offsprings.add(mutatedIndividual);
                 }
 
             }
@@ -148,14 +189,26 @@ public class GA {
 
 
         }
+        if (bufferWritter != null) {
+            try {
+                bufferWritter.write("----------");
+                bufferWritter.close();
+//                EnvironmentMonitoring.recordIteration = 0;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        for (Individual individual : population) {
+            individual.setFitness(getFitness(currentDeviceId, individual, application));
+        }
         Collections.sort(population);
         Individual topIndividual = population.get(0);
         for (Pair<String, Integer> pair : topIndividual.getChromosome()) {
             resourceAllocationPolicy.put(pair.getKey(), pair.getValue());
         }
 
-        System.out.println(resourceAllocationPolicy);
-        System.out.println(getFitness(currentDeviceId, topIndividual, application));
+//        System.out.println(resourceAllocationPolicy);
+//        System.out.println(getFitness(currentDeviceId, topIndividual, application));
 
         return resourceAllocationPolicy;
     }
@@ -204,6 +257,25 @@ public class GA {
             Individual individual = getRandomIndividual(moduleNameList, fogResourceIdList);
             population.add(individual);
         }
+        Sensor aSensor = EnvironmentMonitoring.sensors.get(0);
+
+        BufferedWriter bufferWritter = null;
+        if (EnvironmentMonitoring.recordIteration == 1&&aSensor.getEmitTime() == EnvironmentMonitoring.recordTaskNo) {
+            try{
+
+                File file =new File("iterationRecordOGA.txt");
+
+                //if file doesnt exists, then create it
+                if(!file.exists()){
+                    file.createNewFile();
+                }
+                //true = append file
+                FileWriter fileWritter = new FileWriter(file.getName(),true);
+                bufferWritter = new BufferedWriter(fileWritter);
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        }
 
         /**
          * 开始迭代
@@ -217,6 +289,14 @@ public class GA {
             }
 //            setFitnessToPopulation(currentDeviceId, population, application);
             Collections.sort(population);
+            //记录iteration最优值
+            if (EnvironmentMonitoring.recordIteration == 1&&aSensor.getEmitTime() == EnvironmentMonitoring.recordTaskNo) {
+                try {
+                    bufferWritter.write(population.get(0).getFitness() + "\n");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
             //死亡群体不进入下一代
             int survivalNum = (int) (survivalRate * populationSize);
             List<Individual> survivors = population.subList(0, survivalNum);
@@ -245,9 +325,9 @@ public class GA {
             /**
              * 变异
              */
-            for (int p = indexElite; p < survivors.size(); p++) {
+            for (int p = 0; p < offsprings.size(); p++) {
                 if (mutation()) {
-                    Individual individual = survivors.get(p);
+                    Individual individual = offsprings.get(p);
 //                newPopulation.add(individual);
                     List<Pair<String, Integer>> chromosome = individual.getChromosome();
                     int mutationNum = (int) (mutationBitRate * chromosome.size());
@@ -266,17 +346,31 @@ public class GA {
             newPopulation.addAll(offsprings);
 
             population = newPopulation;
-
-
+        }
+        if (bufferWritter != null) {
+            try {
+                bufferWritter.write("----------");
+                bufferWritter.close();
+                EnvironmentMonitoring.recordIteration = 0;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        for (Individual individual : population) {
+            individual.setFitness(getFitness(currentDeviceId, individual, application));
         }
         Collections.sort(population);
         Individual topIndividual = population.get(0);
+
+//        System.out.println(topIndividual.getChromosome());
+//        System.out.println(topIndividual.getFitness());
+
         for (Pair<String, Integer> pair : topIndividual.getChromosome()) {
             resourceAllocationPolicy.put(pair.getKey(), pair.getValue());
         }
 
-        System.out.println(resourceAllocationPolicy);
-        System.out.println(getFitness(currentDeviceId, topIndividual, application));
+//        System.out.println(resourceAllocationPolicy);
+//        System.out.println(getFitness(currentDeviceId, topIndividual, application));
 
         return resourceAllocationPolicy;
 
@@ -442,15 +536,14 @@ public class GA {
 
         double executeTime = getExecuteTime(chromosome, application);
         double transTime = getTransTime(currentDeviceId, chromosome, application);
-        double waitingTime = getQueueWaitingTime(chromosome, application);
+        double waitingTime = getQueueWaitingTime(chromosome, application)*10;
+
 //        double punishment =;
 
         double fitness = executeTime + transTime + waitingTime*8;
 //        double fitness =  transTime + waitingTime;
+//        double fitness =   waitingTime;
 
-//        if (waitingTime > 10) {
-//            System.out.println("");
-//        }
 //        double waitingTupleNum = 0;
 //        for (Pair<String, Integer> genBit : chromosome) {
 //            FogDevice targetDevice = (FogDevice) CloudSim.getEntity(genBit.getValue());
@@ -588,21 +681,27 @@ public class GA {
             //Edge -> Edge
             if (destType == Enums.EDGE_SERVER || destType == Enums.PROXY) {
                 double transTime = edge.getTupleNwLength() / getFogDeviceById(srcId).getUplinkBandwidth();
-                return latency += transTime;
+                return latency + transTime + getFogDeviceById(srcId).getUplinkLatency();
             } else {
+                FogDevice curDevice = getFogDeviceById(srcId);
+                FogDevice proxy = getFogDeviceById(curDevice.getParentId());
+
                 //Edge -> Cloud
                 latency += edge.getTupleNwLength() / getFogDeviceById(srcId).getUplinkBandwidth();
                 int proxyId = getFogDeviceById(srcId).getParentId();
                 latency += edge.getTupleNwLength() / getFogDeviceById(proxyId).getUplinkBandwidth();
-                return latency;
+                return latency + getFogDeviceById(srcId).getUplinkLatency()
+                        + curDevice.getUplinkLatency() + proxy.getUplinkLatency();
             }
         } else if (srcType == Enums.PROXY) {
             // proxy -> cloud
             if (destType == Enums.CLOUD) {
-                return latency += edge.getTupleNwLength() / getFogDeviceById(srcId).getUplinkBandwidth();
+                return latency + edge.getTupleNwLength() / getFogDeviceById(srcId).getUplinkBandwidth()
+                        + getFogDeviceById(srcId).getUplinkLatency();
             } else {
                 // proxy -> edge
-                return latency += edge.getTupleNwLength() / getFogDeviceById(srcId).getDownlinkBandwidth();
+                return latency + edge.getTupleNwLength() / getFogDeviceById(srcId).getDownlinkBandwidth()
+                        + getFogDeviceById(srcId).getUplinkLatency();
             }
         } else {
             // cloud -> proxy
@@ -615,6 +714,7 @@ public class GA {
                 latency += edge.getTupleNwLength() / getFogDeviceById(proxyId).getDownlinkBandwidth();
                 return latency;
             }
+
         }
     }
 
@@ -689,6 +789,7 @@ public class GA {
             this.individual.setFitness(getFitness(this.currentDeviceId,this.individual,this.application));
         }
     }
+
 
 
 
